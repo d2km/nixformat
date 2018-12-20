@@ -16,6 +16,8 @@ type token =
   | STR_MID of string
   | STR_END of string
   | ID of string
+  | SCOMMENT of string
+  | MCOMMENT of string
   | SELECT
   | QMARK
   | CONCAT
@@ -179,6 +181,10 @@ rule token = parse
     { BOOL b }
 | (alpha (alpha_digit | ['_' '\''])*) as id
     {try Hashtbl.find keyword_table id with Not_found -> ID id}
+| '#' ([^ '\n']+ as c)
+    { SCOMMENT c }
+| "/*"
+    { comment (Buffer.create 100) lexbuf }
 | eof
     { EOF }
 | _
@@ -188,6 +194,14 @@ rule token = parse
       let err = Printf.sprintf "Unexpected character '%s' at %s\n" tok pos in
       raise (Error err)
     }
+
+and comment buf = parse
+  | '\n'
+    {Lexing.new_line lexbuf; Buffer.add_char buf '\n'; comment buf lexbuf}
+  | "*/"
+    { MCOMMENT (Buffer.contents buf) }
+  | _ as c
+    { Buffer.add_char buf c; comment buf lexbuf }
 
 {
 let print_token = function
@@ -203,6 +217,8 @@ let print_token = function
   | STR_MID s -> Printf.sprintf "STR_MID %s" s
   | STR_END s -> Printf.sprintf "STR_END %s" s
   | ID s -> Printf.sprintf "ID %s" s
+  | SCOMMENT s -> Printf.sprintf "SCOMMENT %s" s
+  | MCOMMENT s -> Printf.sprintf "MCOMMENT %s" s
   | SELECT -> "SELECT"
   | QMARK -> "QMARK"
   | CONCAT -> "CONCAT"
