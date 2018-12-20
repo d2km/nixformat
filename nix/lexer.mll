@@ -77,6 +77,7 @@ let set_filename fname (lexbuf: Lexing.lexbuf)  =
 }
 
 let digit = ['0'-'9']
+let float = digit* '.' digit+ ('e' '-'? digit+)?
 let alpha = ['a'-'z' 'A'-'Z']
 let alpha_digit = alpha|digit
 let path_chr = alpha_digit | ['.' '_' '-' '+']
@@ -100,8 +101,8 @@ rule token = parse
     { NOT }
 | "//"
     { MERGE }
-(* | '='
- *     { ASSIGN } *)
+| '='
+    { ASSIGN }
 | '<'
     { LT }
 | "<="
@@ -150,8 +151,8 @@ rule token = parse
     { COMA }
 | digit+ as i
     { INT i }
-| (( digit+ '.' digit* ) | ( '.' digit+ )) as f
-    { FLOAT f}
+| float
+    { FLOAT (Lexing.lexeme lexbuf) }
 | path
     { PATH (Lexing.lexeme lexbuf) }
 | '<' (spath as p) '>'
