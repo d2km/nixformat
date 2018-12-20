@@ -53,6 +53,10 @@ type token =
   | IN
   | INHERIT
   | NULL
+  | IF
+  | THEN
+  | ELSE
+  | ASSERT
   | EOF
 
 
@@ -64,7 +68,11 @@ let _ =
       "rec", REC;
       "let", LET;
       "inherit", INHERIT;
-      "null", NULL ]
+      "null", NULL;
+      "if" , IF;
+      "then", THEN;
+      "else", ELSE;
+      "assert", ASSERT ]
 
 let print_position lexbuf =
   let pos = Lexing.lexeme_start_p lexbuf in
@@ -229,6 +237,10 @@ let print_token = function
   | IN -> "IN"
   | INHERIT -> "INHERIT"
   | NULL -> "NULL"
+  | IF -> "IF"
+  | THEN -> "THEN"
+  | ELSE -> "ELSE"
+  | ASSERT -> "ASSERT"
   | EOF -> "EOF"
 
 }
