@@ -45,6 +45,7 @@ type token =
   | COLON
   | SEMICOLON
   | COMA
+  | ELLIPSIS
   | IMPORT
   | WITH
   | REC
@@ -149,6 +150,8 @@ rule token = parse
     { SEMICOLON }
 | ','
     { COMA }
+| "..."
+    { ELLIPSIS }
 | digit+ as i
     { INT i }
 | float
@@ -218,6 +221,7 @@ let print_token = function
   | COLON -> "COLON"
   | SEMICOLON -> "SEMICOLON"
   | COMA -> "COMA"
+  | ELLIPSIS -> "ELLIPSIS"
   | IMPORT -> "IMPORT"
   | WITH -> "WITH"
   | REC -> "REC"
