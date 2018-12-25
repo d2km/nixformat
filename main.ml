@@ -6,13 +6,13 @@ let main () =
                |> (set_filename "<stdin>")
   in
   let rec loop acc =  function
-    | EOF   ->  print_token EOF :: acc |> List.rev
-    | x     ->  loop (print_token x :: acc) (token lexbuf)
+    | [], _    ->  ([EOF] @ acc) |> List.rev
+    | x, stack ->  loop (x @ acc) (tokens stack lexbuf)
   in
   try
-    loop [] (token lexbuf)
-    |> String.concat "\n"
-    |> print_endline
+    loop [] (tokens [] lexbuf)
+    |> List.map print_token
+    |> List.iter print_endline
   with
     Error msg ->
     print_endline msg

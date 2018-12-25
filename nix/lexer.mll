@@ -33,7 +33,8 @@ type token =
   | AND
   | OR
   | IMPL
-  | ANTIQUOTE
+  | AQUOTE_OPEN
+  | AQUOTE_CLOSE
   | LBRACE
   | RBRACE
   | LBRACK
@@ -62,6 +63,14 @@ type token =
   | ASSERT
   | EOF
 
+(* Types of closing curly braces.
+
+   AQUOTE corresponds to the closing curly brace for
+   antiquotation, i.e. ${} and SET to the closing braces for {}.
+ *)
+type braces =
+  | AQUOTE
+  | SET
 
 let keyword_table = Hashtbl.create 10
 let _ =
@@ -91,102 +100,119 @@ let set_filename fname (lexbuf: Lexing.lexbuf)  =
 let digit = ['0'-'9']
 let float = digit* '.' digit+ ('e' '-'? digit+)?
 let alpha = ['a'-'z' 'A'-'Z']
-let alpha_digit = alpha|digit
+let alpha_digit = alpha | digit
 let path_chr = alpha_digit | ['.' '_' '-' '+']
 let path = path_chr* ('/' path_chr+)+
 let spath = alpha_digit path_chr* ('/' path_chr+)*
 let uri_chr = ['%' '/' '?' ':' '@' '&' '=' '+' '$' ',' '-' '_' '.' '!' '~' '*' '\'']
 let uri = alpha (alpha_digit | ['+' '-' '.'])* ':' (alpha_digit | uri_chr)+
 
-rule token = parse
+rule tokens brace_stack = parse
+(* skip whitespeces *)
 | [' ' '\t']
-    { token lexbuf }
+    { tokens brace_stack lexbuf }
+(* increase line count for new lines *)
 | '\n'
-    { Lexing.new_line lexbuf; token lexbuf }
+    { Lexing.new_line lexbuf; tokens brace_stack lexbuf }
 | '.'
-    { SELECT }
+    { [SELECT], brace_stack }
 | '?'
-    { QMARK }
+    { [QMARK], brace_stack }
 | "++"
-    { CONCAT }
+    { [CONCAT], brace_stack }
 | '!'
-    { NOT }
+    { [NOT], brace_stack }
 | "//"
-    { MERGE }
+    { [MERGE], brace_stack }
 | '='
-    { ASSIGN }
+    { [ASSIGN], brace_stack }
 | '<'
-    { LT }
+    { [LT], brace_stack }
 | "<="
-    { LTE }
+    { [LTE], brace_stack }
 | '>'
-    { GT }
+    { [GT], brace_stack }
 | ">="
-    { GTE }
+    { [GTE], brace_stack }
 | "=="
-    { EQ }
+    { [EQ], brace_stack }
 | "!="
-    { NEQ }
+    { [NEQ], brace_stack }
 | "&&"
-    { AND }
+    { [AND], brace_stack }
 | "||"
-    { OR }
+    { [OR], brace_stack }
 | "->"
-    { IMPL }
-| "${"
-    { ANTIQUOTE }
-| '{'
-    { LBRACE }
-| '}'
-    { RBRACE }
+    { [IMPL], brace_stack }
 | '['
-    { LBRACK }
+    { [LBRACK], brace_stack }
 | ']'
-    { RBRACK }
+    { [RBRACK], brace_stack }
 | '+'
-    { PLUS }
+    { [PLUS], brace_stack }
 | '-'
-    { MINUS }
+    { [MINUS], brace_stack }
 | '*'
-    { TIMES }
+    { [TIMES], brace_stack }
 | '/'
-    { SLASH }
+    { [SLASH], brace_stack }
 | '('
-    { LPAREN }
+    { [LPAREN], brace_stack }
 | ')'
-    { RPAREN }
+    { [RPAREN], brace_stack }
 | ':'
-    { COLON }
+    { [COLON], brace_stack }
 | ';'
-    { SEMICOLON }
+    { [SEMICOLON], brace_stack }
 | ','
-    { COMA }
+    { [COMA], brace_stack }
 | "..."
-    { ELLIPSIS }
+    { [ELLIPSIS], brace_stack }
 | '@'
-    { AS }
+    { [AS], brace_stack }
 | digit+ as i
-    { INT i }
+    { [INT i], brace_stack }
 | float
-    { FLOAT (Lexing.lexeme lexbuf) }
+    { [FLOAT (Lexing.lexeme lexbuf)], brace_stack }
 | path
-    { PATH (Lexing.lexeme lexbuf) }
+    { [PATH (Lexing.lexeme lexbuf)], brace_stack }
 | '<' (spath as p) '>'
-    { SPATH  p }
+    { [SPATH  p], brace_stack }
 | '~' path as p
-    { HPATH  p }
+    { [HPATH  p], brace_stack }
 | uri
-    { URI (Lexing.lexeme lexbuf) }
+    { [URI (Lexing.lexeme lexbuf)], brace_stack }
 | ("true" | "false") as b
-    { BOOL b }
+    { [BOOL b], brace_stack }
+(* keywords or identifies *)
 | (alpha (alpha_digit | ['_' '\''])*) as id
-    {try Hashtbl.find keyword_table id with Not_found -> ID id}
+    { [try Hashtbl.find keyword_table id with Not_found -> ID id], brace_stack}
+(* comments *)
 | '#' ([^ '\n']+ as c)
-    { SCOMMENT c }
+    { [SCOMMENT c], brace_stack }
 | "/*"
-    { comment (Buffer.create 100) lexbuf }
+    { [comment (Buffer.create 100) lexbuf], brace_stack }
+(* the following three tokens change the brace_stack *)
+| "${"
+    { [AQUOTE_OPEN], (AQUOTE :: brace_stack) }
+| '{'
+    { [LBRACE], (SET :: brace_stack) }
+| '}'
+    {
+      match brace_stack with
+      | AQUOTE :: rest ->
+        [AQUOTE_CLOSE], rest
+      | SET :: rest ->
+        [RBRACE], rest
+      | _ ->
+        let pos = print_position lexbuf in
+        let err = Printf.sprintf "Unbalanced '}' at %s\n" pos in
+        raise (Error err)
+    }
+(* End of input *)
 | eof
-    { EOF }
+    { [], brace_stack }
+(* any other character raises an exception *)
 | _
     {
       let pos = print_position lexbuf in
@@ -194,7 +220,8 @@ rule token = parse
       let err = Printf.sprintf "Unexpected character '%s' at %s\n" tok pos in
       raise (Error err)
     }
-
+(* Nix does not allow nested comments, but it is still handy to lex it
+   separately because we can properly increase line count. *)
 and comment buf = parse
   | '\n'
     {Lexing.new_line lexbuf; Buffer.add_char buf '\n'; comment buf lexbuf}
@@ -234,7 +261,8 @@ let print_token = function
   | AND -> "AND"
   | OR -> "OR"
   | IMPL -> "IMPL"
-  | ANTIQUOTE -> "ANTIQUOTE"
+  | AQUOTE_OPEN -> "AQUOTE_OPEN"
+  | AQUOTE_CLOSE -> "AQUOTE_CLOSE"
   | LBRACE -> "LBRACE"
   | RBRACE -> "RBRACE"
   | LBRACK -> "LBRACK"
