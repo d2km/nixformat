@@ -63,10 +63,9 @@ type token =
   | ASSERT
   | EOF
 
-(* Types of closing curly braces.
-
-   AQUOTE corresponds to the closing curly brace for
-   antiquotation, i.e. ${} and SET to the closing braces for {}.
+(* Types of curly braces.
+   AQUOTE corresponds to the braces for antiquotation, i.e. '${...}'
+   and SET to an attribute set '{...}'.
  *)
 type braces =
   | AQUOTE
