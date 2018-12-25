@@ -6,8 +6,8 @@ let main () =
                |> (set_filename "<stdin>")
   in
   let rec loop acc =  function
-    | [], _    ->  ([EOF] @ acc) |> List.rev
-    | x, stack ->  loop (x @ acc) (tokens stack lexbuf)
+    | [EOF], _ ->  ([EOF] @ acc) |> List.rev
+    | xs, stack ->  loop ((List.rev xs) @ acc) (tokens stack lexbuf)
   in
   try
     loop [] (tokens [] lexbuf)

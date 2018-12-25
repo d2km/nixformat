@@ -14,7 +14,7 @@ type token =
   | STR of string
   | STR_START of string
   | STR_MID of string
-  | STR_END of string
+  | STR_END
   | ID of string
   | SCOMMENT of string
   | MCOMMENT of string
@@ -71,6 +71,11 @@ type braces =
   | AQUOTE
   | SET
 
+let token_of_str state buf =
+  match state with
+        | `Start -> STR_START (Buffer.contents buf)
+        | `Mid -> STR_MID (Buffer.contents buf)
+
 let keyword_table = Hashtbl.create 10
 let _ =
   List.iter (fun (kwd, tok) -> Hashtbl.add keyword_table kwd tok)
@@ -89,6 +94,15 @@ let print_position lexbuf =
   let pos = Lexing.lexeme_start_p lexbuf in
   Printf.sprintf "%s:%d:%d" pos.pos_fname
     pos.pos_lnum (pos.pos_cnum - pos.pos_bol + 1)
+
+let unescape = function
+  | "\\n" -> "\n"
+  | "\\r" -> "\r"
+  | "\\t" -> "\t"
+  | "\\\\" -> "\\"
+  | "\\${" -> "${"
+  | x ->
+    failwith (Printf.sprintf "unescape unexpected arg %s" x)
 
 let set_filename fname (lexbuf: Lexing.lexbuf)  =
   let pos = lexbuf.lex_curr_p in
@@ -190,7 +204,7 @@ rule tokens brace_stack = parse
 | '#' ([^ '\n']+ as c)
     { [SCOMMENT c], brace_stack }
 | "/*"
-    { [comment (Buffer.create 100) lexbuf], brace_stack }
+    { [comment (Buffer.create 64) lexbuf], brace_stack }
 (* the following three tokens change the brace_stack *)
 | "${"
     { [AQUOTE_OPEN], (AQUOTE :: brace_stack) }
@@ -208,9 +222,12 @@ rule tokens brace_stack = parse
         let err = Printf.sprintf "Unbalanced '}' at %s\n" pos in
         raise (Error err)
     }
+(* a double-quoted string *)
+| '"'
+    { string `Start (Buffer.create 64) lexbuf, brace_stack }
 (* End of input *)
 | eof
-    { [], brace_stack }
+    { [EOF], brace_stack }
 (* any other character raises an exception *)
 | _
     {
@@ -219,6 +236,7 @@ rule tokens brace_stack = parse
       let err = Printf.sprintf "Unexpected character '%s' at %s\n" tok pos in
       raise (Error err)
     }
+
 (* Nix does not allow nested comments, but it is still handy to lex it
    separately because we can properly increase line count. *)
 and comment buf = parse
@@ -228,6 +246,30 @@ and comment buf = parse
     { MCOMMENT (Buffer.contents buf) }
   | _ as c
     { Buffer.add_char buf c; comment buf lexbuf }
+
+and string state buf = parse
+  | '"'                         (* terminate when we hit '"' *)
+    {
+      [token_of_str state buf; STR_END]
+    }
+  | '\n'
+    { Lexing.new_line lexbuf; Buffer.add_char buf '\n'; string state buf lexbuf }
+  | ("\\n" | "\\r" | "\\t" | "\\\\" | "\\${") as s
+      { Buffer.add_string buf (unescape s); string state buf lexbuf }
+  | "\\" (_ as c)               (* add the character verbatim *)
+      { Buffer.add_char buf c; string state buf lexbuf }
+  | "${"               (* collect all the tokens till we hit the matching '}' *)
+    {
+      let rec go = function
+        | [AQUOTE_CLOSE], [] ->
+          AQUOTE_CLOSE :: (string `Mid (Buffer.create 64) lexbuf)
+        | xs, stack ->
+          xs @ (go (tokens stack lexbuf))
+      in
+      token_of_str state buf :: AQUOTE_OPEN :: (go (tokens [AQUOTE] lexbuf))
+    }
+  | _ as c                  (* otherwise just add the character to the buffer *)
+    { Buffer.add_char buf c; string state buf lexbuf }
 
 {
 let print_token = function
@@ -241,7 +283,7 @@ let print_token = function
   | STR s -> Printf.sprintf "STR %s" s
   | STR_START s -> Printf.sprintf "STR_START %s" s
   | STR_MID s -> Printf.sprintf "STR_MID %s" s
-  | STR_END s -> Printf.sprintf "STR_END %s" s
+  | STR_END -> "STR_END"
   | ID s -> Printf.sprintf "ID %s" s
   | SCOMMENT s -> Printf.sprintf "SCOMMENT %s" s
   | MCOMMENT s -> Printf.sprintf "MCOMMENT %s" s
