@@ -47,7 +47,7 @@ type token =
   | RPAREN
   | COLON
   | SEMICOLON
-  | COMA
+  | COMMA
   | ELLIPSIS
   | AS
   | IMPORT
@@ -165,7 +165,7 @@ rule tokens brace_stack = parse
 | ';'
     { [SEMICOLON], brace_stack }
 | ','
-    { [COMA], brace_stack }
+    { [COMMA], brace_stack }
 | "..."
     { [ELLIPSIS], brace_stack }
 | '@'
@@ -275,7 +275,7 @@ let print_token = function
   | RPAREN -> "RPAREN"
   | COLON -> "COLON"
   | SEMICOLON -> "SEMICOLON"
-  | COMA -> "COMA"
+  | COMMA -> "COMMA"
   | ELLIPSIS -> "ELLIPSIS"
   | AS -> "AS"
   | IMPORT -> "IMPORT"
