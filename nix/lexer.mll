@@ -85,6 +85,49 @@ let token_of_istr state buf =
         | `Start -> ISTR_START (Buffer.contents buf)
         | `Mid -> ISTR_MID (Buffer.contents buf)
 
+(* lookup table for one-character tokens *)
+let char_table = Array.make 93 EOF
+let _ =
+  List.iter (fun (k, v) -> Array.set char_table ((int_of_char k) - 1) v)
+    [
+      '.', SELECT;
+      '?', QMARK;
+      '!', NOT;
+      '=', ASSIGN;
+      '<', LT;
+      '>', GT;
+      '[', LBRACK;
+      ']', RBRACK;
+      '+', PLUS;
+      '-', MINUS;
+      '*', TIMES;
+      '/', SLASH;
+      '(', LPAREN;
+      ')', RPAREN;
+      ':', COLON;
+      ';', SEMICOLON;
+      ',', COMMA;
+      '@', AS
+    ]
+
+(* lookup table for two- and three-character tokens *)
+let str_table = Hashtbl.create 10
+let _ =
+  List.iter (fun (kwd, tok) -> Hashtbl.add str_table kwd tok)
+    [
+      "//", MERGE;
+      "++", CONCAT;
+      "<=", LTE;
+      ">=", GTE;
+      "==", EQ;
+      "!=", NEQ;
+      "&&", AND;
+      "||", OR;
+      "->", IMPL;
+      "...", ELLIPSIS
+    ]
+
+(* lookup table for keywords *)
 let keyword_table = Hashtbl.create 10
 let _ =
   List.iter (fun (kwd, tok) -> Hashtbl.add keyword_table kwd tok)
@@ -98,13 +141,9 @@ let _ =
       "then", THEN;
       "else", ELSE;
       "assert", ASSERT;
-      "or", ORDEF]
+      "or", ORDEF ]
 
-let print_position lexbuf =
-  let pos = Lexing.lexeme_start_p lexbuf in
-  Printf.sprintf "%s:%d:%d" pos.pos_fname
-    pos.pos_lnum (pos.pos_cnum - pos.pos_bol + 1)
-
+(* replace an escape sequence by the corresponding character(s) *)
 let unescape = function
   | "\\n" -> "\n"
   | "\\r" -> "\r"
@@ -118,6 +157,12 @@ let unescape = function
   | "''\\r" -> "\r"
   | x ->
     failwith (Printf.sprintf "unescape unexpected arg %s" x)
+
+(* utility functions *)
+let print_position lexbuf =
+  let pos = Lexing.lexeme_start_p lexbuf in
+  Printf.sprintf "%s:%d:%d" pos.pos_fname
+    pos.pos_lnum (pos.pos_cnum - pos.pos_bol + 1)
 
 
 let set_filename fname (lexbuf: Lexing.lexbuf)  =
@@ -134,7 +179,10 @@ let path_chr = alpha_digit | ['.' '_' '-' '+']
 let path = path_chr* ('/' path_chr+)+
 let spath = alpha_digit path_chr* ('/' path_chr+)*
 let uri_chr = ['%' '/' '?' ':' '@' '&' '=' '+' '$' ',' '-' '_' '.' '!' '~' '*' '\'']
-let uri = alpha (alpha_digit | ['+' '-' '.'])* ':' (alpha_digit | uri_chr)+
+let scheme = "http" 's'? | "ftp" | "ssh" | "git" | "mirror"
+let uri = scheme ':' (alpha_digit | uri_chr)+
+(* let uri = alpha (alpha_digit | ['+' '-' '.'])* ':' (alpha_digit | uri_chr)+ *)
+let char_tokens = ['.' '?' '!' '=' '<' '>' '[' ']' '+' '-' '*' '/' '(' ')' ':' ';' ',' '@']
 
 rule tokens brace_stack = parse
 (* skip whitespeces *)
@@ -143,62 +191,10 @@ rule tokens brace_stack = parse
 (* increase line count for new lines *)
 | '\n'
     { Lexing.new_line lexbuf; tokens brace_stack lexbuf }
-| '.'
-    { [SELECT], brace_stack }
-| '?'
-    { [QMARK], brace_stack }
-| "++"
-    { [CONCAT], brace_stack }
-| '!'
-    { [NOT], brace_stack }
-| "//"
-    { [MERGE], brace_stack }
-| '='
-    { [ASSIGN], brace_stack }
-| '<'
-    { [LT], brace_stack }
-| "<="
-    { [LTE], brace_stack }
-| '>'
-    { [GT], brace_stack }
-| ">="
-    { [GTE], brace_stack }
-| "=="
-    { [EQ], brace_stack }
-| "!="
-    { [NEQ], brace_stack }
-| "&&"
-    { [AND], brace_stack }
-| "||"
-    { [OR], brace_stack }
-| "->"
-    { [IMPL], brace_stack }
-| '['
-    { [LBRACK], brace_stack }
-| ']'
-    { [RBRACK], brace_stack }
-| '+'
-    { [PLUS], brace_stack }
-| '-'
-    { [MINUS], brace_stack }
-| '*'
-    { [TIMES], brace_stack }
-| '/'
-    { [SLASH], brace_stack }
-| '('
-    { [LPAREN], brace_stack }
-| ')'
-    { [RPAREN], brace_stack }
-| ':'
-    { [COLON], brace_stack }
-| ';'
-    { [SEMICOLON], brace_stack }
-| ','
-    { [COMMA], brace_stack }
-| "..."
-    { [ELLIPSIS], brace_stack }
-| '@'
-    { [AS], brace_stack }
+| char_tokens as c
+    { [Array.get char_table ((int_of_char c) - 1)], brace_stack }
+| ("//" | "++" | "<=" | ">=" | "==" | "!=" | "&&" | "||" | "->" | "...") as s
+    { [Hashtbl.find str_table s], brace_stack}
 | digit+ as i
     { [INT i], brace_stack }
 | float
