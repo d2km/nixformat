@@ -6,13 +6,15 @@ let main () =
                |> (set_filename "<stdin>")
   in
   let rec loop acc =  function
-    | [EOF], _ ->  ([EOF] @ acc) |> List.rev
-    | xs, stack ->  loop ((List.rev xs) @ acc) (tokens stack lexbuf)
+    | [EOF], _ ->  ()
+    | xs, stack ->  xs
+                    |> List.map print_token
+                    |> List.iter print_endline;
+      loop ((List.rev xs) @ acc) (tokens stack lexbuf)
   in
   try
     loop [] (tokens [] lexbuf)
-    |> List.map print_token
-    |> List.iter print_endline
+
   with
     Error msg ->
     print_endline msg
