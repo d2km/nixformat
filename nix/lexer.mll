@@ -212,10 +212,10 @@ rule tokens brace_stack = parse
 | ("true" | "false") as b
     { [BOOL b], brace_stack }
 (* keywords or identifies *)
-| (alpha (alpha_digit | ['_' '\''])*) as id
+| ((alpha | '_')+ (alpha_digit | ['_' '\''])*) as id
     { [try Hashtbl.find keyword_table id with Not_found -> ID id], brace_stack}
 (* comments *)
-| '#' ([^ '\n']+ as c)
+| '#' ([^ '\n']* as c)
     { [SCOMMENT c], brace_stack }
 | "/*"
     { [comment (Buffer.create 64) lexbuf], brace_stack }
