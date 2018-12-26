@@ -15,6 +15,9 @@ type token =
   | STR_START of string
   | STR_MID of string
   | STR_END
+  | ISTR_START of string
+  | ISTR_MID of string
+  | ISTR_END of int
   | ID of string
   | SCOMMENT of string
   | MCOMMENT of string
@@ -76,6 +79,11 @@ let token_of_str state buf =
         | `Start -> STR_START (Buffer.contents buf)
         | `Mid -> STR_MID (Buffer.contents buf)
 
+let token_of_istr state buf =
+  match state with
+        | `Start -> ISTR_START (Buffer.contents buf)
+        | `Mid -> ISTR_MID (Buffer.contents buf)
+
 let keyword_table = Hashtbl.create 10
 let _ =
   List.iter (fun (kwd, tok) -> Hashtbl.add keyword_table kwd tok)
@@ -101,8 +109,14 @@ let unescape = function
   | "\\t" -> "\t"
   | "\\\\" -> "\\"
   | "\\${" -> "${"
+  | "''$" -> "$"
+  | "$$" -> "$"
+  | "'''" -> "''"
+  | "''\\t" -> "\t"
+  | "''\\r" -> "\r"
   | x ->
     failwith (Printf.sprintf "unescape unexpected arg %s" x)
+
 
 let set_filename fname (lexbuf: Lexing.lexbuf)  =
   let pos = lexbuf.lex_curr_p in
@@ -225,6 +239,9 @@ rule tokens brace_stack = parse
 (* a double-quoted string *)
 | '"'
     { string `Start (Buffer.create 64) lexbuf, brace_stack }
+(* an indented string *)
+| "''"
+    { istring `Start None (Buffer.create 64) lexbuf, brace_stack }
 (* End of input *)
 | eof
     { [EOF], brace_stack }
@@ -249,9 +266,7 @@ and comment buf = parse
 
 and string state buf = parse
   | '"'                         (* terminate when we hit '"' *)
-    {
-      [token_of_str state buf; STR_END]
-    }
+    { [token_of_str state buf; STR_END] }
   | '\n'
     { Lexing.new_line lexbuf; Buffer.add_char buf '\n'; string state buf lexbuf }
   | ("\\n" | "\\r" | "\\t" | "\\\\" | "\\${") as s
@@ -271,6 +286,40 @@ and string state buf = parse
   | _ as c                  (* otherwise just add the character to the buffer *)
     { Buffer.add_char buf c; string state buf lexbuf }
 
+and istring state imin buf = parse
+  | "''"
+      {
+        match imin with
+        | None -> [token_of_istr state buf; (ISTR_END 0)]
+        | Some i -> [token_of_istr state buf; (ISTR_END i)]
+      }
+  | ('\n' (' '* as ws)) as s
+    {
+      Lexing.new_line lexbuf;
+      Buffer.add_string buf s;
+      let ws_count = String.length ws in
+      match imin with
+      | None ->
+        istring state (Some ws_count) buf lexbuf
+      | Some i ->
+        istring state (Some (min i ws_count)) buf lexbuf
+    }
+  | ("''$" | "$$" | "'''" | "''\\t" | "''\\r") as s
+      { Buffer.add_string buf (unescape s); istring state imin buf lexbuf }
+  | "''\\" (_ as c)
+      { Buffer.add_char buf c; istring state imin buf lexbuf }
+  | "${"
+    {
+      let rec go = function
+        | [AQUOTE_CLOSE], [] ->
+          AQUOTE_CLOSE :: (istring `Mid imin (Buffer.create 64) lexbuf)
+        | xs, stack ->
+          xs @ (go (tokens stack lexbuf))
+      in
+      token_of_istr state buf :: AQUOTE_OPEN :: (go (tokens [AQUOTE] lexbuf))
+    }
+  | _ as c
+    { Buffer.add_char buf c; istring state imin buf lexbuf }
 {
 let print_token = function
   | INT s -> Printf.sprintf "INT %s" s
@@ -284,6 +333,9 @@ let print_token = function
   | STR_START s -> Printf.sprintf "STR_START %s" s
   | STR_MID s -> Printf.sprintf "STR_MID %s" s
   | STR_END -> "STR_END"
+  | ISTR_START s -> Printf.sprintf "STR_START %s" s
+  | ISTR_MID s -> Printf.sprintf "STR_MID %s" s
+  | ISTR_END i -> Printf.sprintf "STR_END %d" i
   | ID s -> Printf.sprintf "ID %s" s
   | SCOMMENT s -> Printf.sprintf "SCOMMENT %s" s
   | MCOMMENT s -> Printf.sprintf "MCOMMENT %s" s
