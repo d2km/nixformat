@@ -64,6 +64,7 @@ type token =
   | THEN
   | ELSE
   | ASSERT
+  | ORDEF
   | EOF
 
 (* Types of curly braces.
@@ -96,7 +97,8 @@ let _ =
       "if" , IF;
       "then", THEN;
       "else", ELSE;
-      "assert", ASSERT ]
+      "assert", ASSERT;
+      "or", ORDEF]
 
 let print_position lexbuf =
   let pos = Lexing.lexeme_start_p lexbuf in
@@ -382,6 +384,7 @@ let print_token = function
   | THEN -> "THEN"
   | ELSE -> "ELSE"
   | ASSERT -> "ASSERT"
+  | ORDEF -> "ORDEF"
   | EOF -> "EOF"
 
 }
