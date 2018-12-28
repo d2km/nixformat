@@ -158,6 +158,15 @@ let unescape = function
   | x ->
     failwith (Printf.sprintf "unescape unexpected arg %s" x)
 
+let collect_tokens first_token lexer lexbuf =
+  let rec go = function
+    | [AQUOTE_CLOSE] as xs, [] ->
+      xs
+    | xs, stack ->
+      xs @ (go (lexer stack lexbuf))
+  in
+  first_token :: AQUOTE_OPEN :: (go (lexer [AQUOTE] lexbuf))
+
 (* utility functions *)
 let print_position lexbuf =
   let pos = Lexing.lexeme_start_p lexbuf in
@@ -273,13 +282,9 @@ and string state buf = parse
       { Buffer.add_char buf c; string state buf lexbuf }
   | "${"               (* collect all the tokens till we hit the matching '}' *)
     {
-      let rec go = function
-        | [AQUOTE_CLOSE], [] ->
-          AQUOTE_CLOSE :: (string `Mid (Buffer.create 64) lexbuf)
-        | xs, stack ->
-          xs @ (go (tokens stack lexbuf))
-      in
-      token_of_str state buf :: AQUOTE_OPEN :: (go (tokens [AQUOTE] lexbuf))
+      let first_token = token_of_str state buf in
+      let collected_tokens = collect_tokens first_token tokens lexbuf in
+      collected_tokens @ (string `Mid (Buffer.create 64) lexbuf)
     }
   | _ as c                  (* otherwise just add the character to the buffer *)
     { Buffer.add_char buf c; string state buf lexbuf }
@@ -308,13 +313,9 @@ and istring state imin buf = parse
       { Buffer.add_char buf c; istring state imin buf lexbuf }
   | "${"
     {
-      let rec go = function
-        | [AQUOTE_CLOSE], [] ->
-          AQUOTE_CLOSE :: (istring `Mid imin (Buffer.create 64) lexbuf)
-        | xs, stack ->
-          xs @ (go (tokens stack lexbuf))
-      in
-      token_of_istr state buf :: AQUOTE_OPEN :: (go (tokens [AQUOTE] lexbuf))
+      let first_token = token_of_istr state buf in
+      let collected_tokens = collect_tokens first_token tokens lexbuf in
+      collected_tokens @ (istring `Mid imin (Buffer.create 64) lexbuf)
     }
   | _ as c
     { Buffer.add_char buf c; istring state imin buf lexbuf }
