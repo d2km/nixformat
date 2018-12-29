@@ -17,6 +17,6 @@ let main () =
     loop (next_token q s lexbuf)
   with
     Error msg ->
-    print_endline msg
+    Printf.eprintf "%s\n" msg
 
 let () = main ()
