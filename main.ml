@@ -5,16 +5,16 @@ let main () =
                |> Lexing.from_channel
                |> (set_filename "<stdin>")
   in
-  let rec loop acc =  function
-    | [EOF], _ ->  ()
-    | xs, stack ->  xs
-                    |> List.map print_token
-                    |> List.iter print_endline;
-      loop ((List.rev xs) @ acc) (tokens stack lexbuf)
+  let q = Queue.create () in
+  let s = ref [] in
+  let rec loop = function
+    | EOF ->  ()
+    | token ->
+      print_endline (print_token token);
+      loop (next_token q s lexbuf)
   in
   try
-    loop [] (tokens [] lexbuf)
-
+    loop (next_token q s lexbuf)
   with
     Error msg ->
     print_endline msg

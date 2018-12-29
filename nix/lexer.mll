@@ -67,6 +67,70 @@ type token =
   | ORDEF
   | EOF
 
+let print_token = function
+  | INT s -> Printf.sprintf "INT %s" s
+  | FLOAT s -> Printf.sprintf "FLOAT %s" s
+  | PATH s -> Printf.sprintf "PATH %s" s
+  | SPATH s -> Printf.sprintf "SPATH %s" s
+  | HPATH s -> Printf.sprintf "HPATH %s" s
+  | URI s -> Printf.sprintf "URI %s" s
+  | BOOL s -> Printf.sprintf "BOOL %s" s
+  | STR s -> Printf.sprintf "STR %s" s
+  | STR_START s -> Printf.sprintf "STR_START %s" s
+  | STR_MID s -> Printf.sprintf "STR_MID %s" s
+  | STR_END -> "STR_END"
+  | ISTR_START s -> Printf.sprintf "STR_START %s" s
+  | ISTR_MID s -> Printf.sprintf "STR_MID %s" s
+  | ISTR_END i -> Printf.sprintf "STR_END %d" i
+  | ID s -> Printf.sprintf "ID %s" s
+  | SCOMMENT s -> Printf.sprintf "SCOMMENT %s" s
+  | MCOMMENT s -> Printf.sprintf "MCOMMENT %s" s
+  | SELECT -> "SELECT"
+  | QMARK -> "QMARK"
+  | CONCAT -> "CONCAT"
+  | NOT -> "NOT"
+  | MERGE -> "MERGE"
+  | ASSIGN -> "ASSIGN"
+  | LT -> "LT"
+  | LTE -> "LTE"
+  | GT -> "GT"
+  | GTE -> "GTE"
+  | EQ -> "EQ"
+  | NEQ -> "NEQ"
+  | AND -> "AND"
+  | OR -> "OR"
+  | IMPL -> "IMPL"
+  | AQUOTE_OPEN -> "AQUOTE_OPEN"
+  | AQUOTE_CLOSE -> "AQUOTE_CLOSE"
+  | LBRACE -> "LBRACE"
+  | RBRACE -> "RBRACE"
+  | LBRACK -> "LBRACK"
+  | RBRACK -> "RBRACK"
+  | PLUS -> "PLUS"
+  | MINUS -> "MINUS"
+  | TIMES -> "TIMES"
+  | SLASH -> "SLASH"
+  | LPAREN -> "LPAREN"
+  | RPAREN -> "RPAREN"
+  | COLON -> "COLON"
+  | SEMICOLON -> "SEMICOLON"
+  | COMMA -> "COMMA"
+  | ELLIPSIS -> "ELLIPSIS"
+  | AS -> "AS"
+  | IMPORT -> "IMPORT"
+  | WITH -> "WITH"
+  | REC -> "REC"
+  | LET -> "LET"
+  | IN -> "IN"
+  | INHERIT -> "INHERIT"
+  | NULL -> "NULL"
+  | IF -> "IF"
+  | THEN -> "THEN"
+  | ELSE -> "ELSE"
+  | ASSERT -> "ASSERT"
+  | ORDEF -> "ORDEF"
+  | EOF -> "EOF"
+
 (* Types of curly braces.
    AQUOTE corresponds to the braces for antiquotation, i.e. '${...}'
    and SET to an attribute set '{...}'.
@@ -74,6 +138,16 @@ type token =
 type braces =
   | AQUOTE
   | SET
+
+let print_stack s =
+  let b = Buffer.create 100 in
+  Buffer.add_string b "[ ";
+  List.iter (function
+      | AQUOTE -> Buffer.add_string b "AQUOTE; "
+      | SET -> Buffer.add_string b "SET; "
+    ) s;
+  Buffer.add_string b "]";
+  Buffer.contents b
 
 let token_of_str state buf =
   match state with
@@ -158,14 +232,22 @@ let unescape = function
   | x ->
     failwith (Printf.sprintf "unescape unexpected arg %s" x)
 
-let collect_tokens first_token lexer lexbuf =
-  let rec go = function
-    | [AQUOTE_CLOSE] as xs, [] ->
-      xs
-    | xs, stack ->
-      xs @ (go (lexer stack lexbuf))
+let collect_tokens lexer q lexbuf =
+  let stack = ref [] in
+  let queue = Queue.create () in
+  let rec go () =
+    match Queue.take queue, !stack with
+    | AQUOTE_CLOSE, [] ->
+      Queue.add AQUOTE_CLOSE q
+    | token, _ ->
+      Queue.add token q;
+      lexer queue stack lexbuf;
+      go ()
   in
-  first_token :: AQUOTE_OPEN :: (go (lexer [AQUOTE] lexbuf))
+  Queue.add AQUOTE_OPEN q;
+  stack := [AQUOTE];
+  lexer queue stack lexbuf;
+  go ()
 
 (* utility functions *)
 let print_position lexbuf =
@@ -193,51 +275,51 @@ let uri = scheme ':' (alpha_digit | uri_chr)+
 (* let uri = alpha (alpha_digit | ['+' '-' '.'])* ':' (alpha_digit | uri_chr)+ *)
 let char_tokens = ['.' '?' '!' '=' '<' '>' '[' ']' '+' '-' '*' '/' '(' ')' ':' ';' ',' '@']
 
-rule tokens brace_stack = parse
+rule get_tokens q s = parse
 (* skip whitespeces *)
 | [' ' '\t']
-    { tokens brace_stack lexbuf }
+    { get_tokens q s lexbuf }
 (* increase line count for new lines *)
 | '\n'
-    { Lexing.new_line lexbuf; tokens brace_stack lexbuf }
+    { Lexing.new_line lexbuf; get_tokens q s lexbuf }
 | char_tokens as c
-    { [Array.get char_table ((int_of_char c) - 1)], brace_stack }
+    { Queue.add (Array.get char_table ((int_of_char c) - 1)) q }
 | ("//" | "++" | "<=" | ">=" | "==" | "!=" | "&&" | "||" | "->" | "...") as s
-    { [Hashtbl.find str_table s], brace_stack}
+    { Queue.add (Hashtbl.find str_table s) q}
 | digit+ as i
-    { [INT i], brace_stack }
+    { Queue.add (INT i) q }
 | float
-    { [FLOAT (Lexing.lexeme lexbuf)], brace_stack }
+    { Queue.add (FLOAT (Lexing.lexeme lexbuf)) q }
 | path
-    { [PATH (Lexing.lexeme lexbuf)], brace_stack }
+    { Queue.add (PATH (Lexing.lexeme lexbuf)) q }
 | '<' (spath as p) '>'
-    { [SPATH  p], brace_stack }
+    { Queue.add (SPATH  p) q }
 | '~' path as p
-    { [HPATH  p], brace_stack }
+    { Queue.add (HPATH  p) q }
 | uri
-    { [URI (Lexing.lexeme lexbuf)], brace_stack }
+    { Queue.add(URI (Lexing.lexeme lexbuf)) q }
 | ("true" | "false") as b
-    { [BOOL b], brace_stack }
+    { Queue.add (BOOL b) q }
 (* keywords or identifies *)
 | ((alpha | '_')+ (alpha_digit | ['_' '\''])*) as id
-    { [try Hashtbl.find keyword_table id with Not_found -> ID id], brace_stack}
+    { Queue.add (try Hashtbl.find keyword_table id with Not_found -> ID id) q}
 (* comments *)
 | '#' ([^ '\n']* as c)
-    { [SCOMMENT c], brace_stack }
+    { Queue.add (SCOMMENT c) q}
 | "/*"
-    { [comment (Buffer.create 64) lexbuf], brace_stack }
-(* the following three tokens change the brace_stack *)
+    { Queue.add (comment (Buffer.create 64) lexbuf) q }
+(* the following three tokens change the braces stack *)
 | "${"
-    { [AQUOTE_OPEN], (AQUOTE :: brace_stack) }
+    { Queue.add AQUOTE_OPEN q; s := AQUOTE :: !s }
 | '{'
-    { [LBRACE], (SET :: brace_stack) }
+    { Queue.add LBRACE q; s := SET :: !s }
 | '}'
     {
-      match brace_stack with
+      match !s with
       | AQUOTE :: rest ->
-        [AQUOTE_CLOSE], rest
+        Queue.add AQUOTE_CLOSE q; s := rest
       | SET :: rest ->
-        [RBRACE], rest
+        Queue.add RBRACE q; s := rest
       | _ ->
         let pos = print_position lexbuf in
         let err = Printf.sprintf "Unbalanced '}' at %s\n" pos in
@@ -245,13 +327,13 @@ rule tokens brace_stack = parse
     }
 (* a double-quoted string *)
 | '"'
-    { string `Start (Buffer.create 64) lexbuf, brace_stack }
+    { string `Start (Buffer.create 64) q lexbuf }
 (* an indented string *)
 | "''"
-    { istring `Start None (Buffer.create 64) lexbuf, brace_stack }
+    { istring `Start None (Buffer.create 64) q lexbuf }
 (* End of input *)
 | eof
-    { [EOF], brace_stack }
+    { Queue.add EOF q }
 (* any other character raises an exception *)
 | _
     {
@@ -271,30 +353,30 @@ and comment buf = parse
   | _ as c
     { Buffer.add_char buf c; comment buf lexbuf }
 
-and string state buf = parse
+and string state buf q = parse
   | '"'                         (* terminate when we hit '"' *)
-    { [token_of_str state buf; STR_END] }
+    { Queue.add (token_of_str state buf) q; Queue.add STR_END q }
   | '\n'
-    { Lexing.new_line lexbuf; Buffer.add_char buf '\n'; string state buf lexbuf }
+    { Lexing.new_line lexbuf; Buffer.add_char buf '\n'; string state buf q lexbuf }
   | ("\\n" | "\\r" | "\\t" | "\\\\" | "\\${") as s
-      { Buffer.add_string buf (unescape s); string state buf lexbuf }
+      { Buffer.add_string buf (unescape s); string state buf q lexbuf }
   | "\\" (_ as c)               (* add the character verbatim *)
-      { Buffer.add_char buf c; string state buf lexbuf }
+      { Buffer.add_char buf c; string state buf q lexbuf }
   | "${"               (* collect all the tokens till we hit the matching '}' *)
     {
-      let first_token = token_of_str state buf in
-      let collected_tokens = collect_tokens first_token tokens lexbuf in
-      collected_tokens @ (string `Mid (Buffer.create 64) lexbuf)
+      Queue.add (token_of_str state buf) q;
+      collect_tokens get_tokens q lexbuf;
+      string `Mid (Buffer.create 64) q lexbuf
     }
   | _ as c                  (* otherwise just add the character to the buffer *)
-    { Buffer.add_char buf c; string state buf lexbuf }
+    { Buffer.add_char buf c; string state buf q lexbuf }
 
-and istring state imin buf = parse
+and istring state imin buf q = parse
   | "''"
       {
-        match imin with
-        | None -> [token_of_istr state buf; (ISTR_END 0)]
-        | Some i -> [token_of_istr state buf; (ISTR_END i)]
+        let indent = match imin with | None -> 0 | Some i -> i in
+        Queue.add (token_of_istr state buf) q;
+        Queue.add (ISTR_END indent) q
       }
   | ('\n' (' '* as ws)) as s
     {
@@ -303,85 +385,34 @@ and istring state imin buf = parse
       let ws_count = String.length ws in
       match imin with
       | None ->
-        istring state (Some ws_count) buf lexbuf
+        istring state (Some ws_count) buf q lexbuf
       | Some i ->
-        istring state (Some (min i ws_count)) buf lexbuf
+        istring state (Some (min i ws_count)) buf q lexbuf
     }
   | ("''$" | "$$" | "'''" | "''\\t" | "''\\r") as s
-      { Buffer.add_string buf (unescape s); istring state imin buf lexbuf }
+      { Buffer.add_string buf (unescape s); istring state imin buf q lexbuf }
   | "''\\" (_ as c)
-      { Buffer.add_char buf c; istring state imin buf lexbuf }
+      { Buffer.add_char buf c; istring state imin buf q lexbuf }
   | "${"
     {
-      let first_token = token_of_istr state buf in
-      let collected_tokens = collect_tokens first_token tokens lexbuf in
-      collected_tokens @ (istring `Mid imin (Buffer.create 64) lexbuf)
+      Queue.add (token_of_istr state buf) q;
+      collect_tokens get_tokens q lexbuf;
+      istring `Mid imin (Buffer.create 64) q lexbuf
     }
   | _ as c
-    { Buffer.add_char buf c; istring state imin buf lexbuf }
+    { Buffer.add_char buf c; istring state imin buf q lexbuf }
 {
-let print_token = function
-  | INT s -> Printf.sprintf "INT %s" s
-  | FLOAT s -> Printf.sprintf "FLOAT %s" s
-  | PATH s -> Printf.sprintf "PATH %s" s
-  | SPATH s -> Printf.sprintf "SPATH %s" s
-  | HPATH s -> Printf.sprintf "HPATH %s" s
-  | URI s -> Printf.sprintf "URI %s" s
-  | BOOL s -> Printf.sprintf "BOOL %s" s
-  | STR s -> Printf.sprintf "STR %s" s
-  | STR_START s -> Printf.sprintf "STR_START %s" s
-  | STR_MID s -> Printf.sprintf "STR_MID %s" s
-  | STR_END -> "STR_END"
-  | ISTR_START s -> Printf.sprintf "STR_START %s" s
-  | ISTR_MID s -> Printf.sprintf "STR_MID %s" s
-  | ISTR_END i -> Printf.sprintf "STR_END %d" i
-  | ID s -> Printf.sprintf "ID %s" s
-  | SCOMMENT s -> Printf.sprintf "SCOMMENT %s" s
-  | MCOMMENT s -> Printf.sprintf "MCOMMENT %s" s
-  | SELECT -> "SELECT"
-  | QMARK -> "QMARK"
-  | CONCAT -> "CONCAT"
-  | NOT -> "NOT"
-  | MERGE -> "MERGE"
-  | ASSIGN -> "ASSIGN"
-  | LT -> "LT"
-  | LTE -> "LTE"
-  | GT -> "GT"
-  | GTE -> "GTE"
-  | EQ -> "EQ"
-  | NEQ -> "NEQ"
-  | AND -> "AND"
-  | OR -> "OR"
-  | IMPL -> "IMPL"
-  | AQUOTE_OPEN -> "AQUOTE_OPEN"
-  | AQUOTE_CLOSE -> "AQUOTE_CLOSE"
-  | LBRACE -> "LBRACE"
-  | RBRACE -> "RBRACE"
-  | LBRACK -> "LBRACK"
-  | RBRACK -> "RBRACK"
-  | PLUS -> "PLUS"
-  | MINUS -> "MINUS"
-  | TIMES -> "TIMES"
-  | SLASH -> "SLASH"
-  | LPAREN -> "LPAREN"
-  | RPAREN -> "RPAREN"
-  | COLON -> "COLON"
-  | SEMICOLON -> "SEMICOLON"
-  | COMMA -> "COMMA"
-  | ELLIPSIS -> "ELLIPSIS"
-  | AS -> "AS"
-  | IMPORT -> "IMPORT"
-  | WITH -> "WITH"
-  | REC -> "REC"
-  | LET -> "LET"
-  | IN -> "IN"
-  | INHERIT -> "INHERIT"
-  | NULL -> "NULL"
-  | IF -> "IF"
-  | THEN -> "THEN"
-  | ELSE -> "ELSE"
-  | ASSERT -> "ASSERT"
-  | ORDEF -> "ORDEF"
-  | EOF -> "EOF"
+
+let rec next_token
+    (q: token Queue.t)
+    (s: braces list ref)
+    (lexbuf: Lexing.lexbuf)
+  : token =
+  match (try Some (Queue.take q) with | Queue.Empty -> None) with
+  | Some token ->
+    token
+  | None ->
+    get_tokens q s lexbuf;
+    next_token q s lexbuf
 
 }
