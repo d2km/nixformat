@@ -236,11 +236,19 @@ let collect_tokens lexer q lexbuf =
   let stack = ref [] in
   let queue = Queue.create () in
   let rec go () =
-    match Queue.take queue, !stack with
-    | AQUOTE_CLOSE, [] ->
-      Queue.add AQUOTE_CLOSE q
-    | token, _ ->
-      Queue.add token q;
+    match (try Some (Queue.take queue) with Queue.Empty -> None) with
+    | Some token ->
+      (
+        match token, !stack with
+        | AQUOTE_CLOSE, [] ->
+          Queue.add AQUOTE_CLOSE q
+        | EOF, _ ->
+          Queue.add EOF q;
+        | _, _ ->
+          Queue.add token q;
+          go ()
+      )
+    | None ->
       lexer queue stack lexbuf;
       go ()
   in
@@ -389,7 +397,7 @@ and istring state imin buf q = parse
       | Some i ->
         istring state (Some (min i ws_count)) buf q lexbuf
     }
-  | ("''$" | "$$" | "'''" | "''\\t" | "''\\r") as s
+  | ("''$" | "'''" | "''\\t" | "''\\r") as s
       { Buffer.add_string buf (unescape s); istring state imin buf q lexbuf }
   | "''\\" (_ as c)
       { Buffer.add_char buf c; istring state imin buf q lexbuf }
