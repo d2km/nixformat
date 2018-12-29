@@ -10,11 +10,11 @@ let main () =
   let rec loop = function
     | EOF ->  ()
     | token ->
-      print_endline (print_token token);
+      Printf.printf "%s\n" (print_token token);
       loop (next_token q s lexbuf)
   in
   try
-    loop (next_token q s lexbuf)
+    loop (next_token q s lexbuf);
   with
     Error msg ->
     Printf.eprintf "%s\n" msg
