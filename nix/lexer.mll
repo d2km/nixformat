@@ -1,73 +1,75 @@
 {
-  (* open Parser *)
+  open Parser
 
 exception Error of string
 
-type token =
-  | INT of string
-  | FLOAT of string
-  | PATH of string
-  | SPATH of string
-  | HPATH of string
-  | URI of string
-  | BOOL of string
-  | STR of string
-  | STR_START of string
-  | STR_MID of string
-  | STR_END
-  | ISTR_START of string
-  | ISTR_MID of string
-  | ISTR_END of int
-  | ID of string
-  | SCOMMENT of string
-  | MCOMMENT of string
-  | SELECT
-  | QMARK
-  | CONCAT
-  | NOT
-  | MERGE
-  | ASSIGN
-  | LT
-  | LTE
-  | GT
-  | GTE
-  | EQ
-  | NEQ
-  | AND
-  | OR
-  | IMPL
-  | AQUOTE_OPEN
-  | AQUOTE_CLOSE
-  | LBRACE
-  | RBRACE
-  | LBRACK
-  | RBRACK
-  | PLUS
-  | MINUS
-  | TIMES
-  | SLASH
-  | LPAREN
-  | RPAREN
-  | COLON
-  | SEMICOLON
-  | COMMA
-  | ELLIPSIS
-  | AS
-  | IMPORT
-  | WITH
-  | REC
-  | LET
-  | IN
-  | INHERIT
-  | NULL
-  | IF
-  | THEN
-  | ELSE
-  | ASSERT
-  | ORDEF
-  | EOF
 
-let print_token = function
+(* type token =
+ *   | INT of string
+ *   | FLOAT of string
+ *   | PATH of string
+ *   | SPATH of string
+ *   | HPATH of string
+ *   | URI of string
+ *   | BOOL of string
+ *   | STR of string
+ *   | STR_START of string
+ *   | STR_MID of string
+ *   | STR_END
+ *   | ISTR_START of string
+ *   | ISTR_MID of string
+ *   | ISTR_END of int
+ *   | ID of string
+ *   | SCOMMENT of string
+ *   | MCOMMENT of string
+ *   | SELECT
+ *   | QMARK
+ *   | CONCAT
+ *   | NOT
+ *   | MERGE
+ *   | ASSIGN
+ *   | LT
+ *   | LTE
+ *   | GT
+ *   | GTE
+ *   | EQ
+ *   | NEQ
+ *   | AND
+ *   | OR
+ *   | IMPL
+ *   | AQUOTE_OPEN
+ *   | AQUOTE_CLOSE
+ *   | LBRACE
+ *   | RBRACE
+ *   | LBRACK
+ *   | RBRACK
+ *   | PLUS
+ *   | MINUS
+ *   | TIMES
+ *   | SLASH
+ *   | LPAREN
+ *   | RPAREN
+ *   | COLON
+ *   | SEMICOLON
+ *   | COMMA
+ *   | ELLIPSIS
+ *   | AS
+ *   | IMPORT
+ *   | WITH
+ *   | REC
+ *   | LET
+ *   | IN
+ *   | INHERIT
+ *   | NULL
+ *   | IF
+ *   | THEN
+ *   | ELSE
+ *   | ASSERT
+ *   | ORDEF
+ *   | EOF *)
+
+
+  let print_token = function
   | INT s -> Printf.sprintf "INT %s" s
   | FLOAT s -> Printf.sprintf "FLOAT %s" s
   | PATH s -> Printf.sprintf "PATH %s" s
@@ -130,6 +132,8 @@ let print_token = function
   | ASSERT -> "ASSERT"
   | ORDEF -> "ORDEF"
   | EOF -> "EOF"
+
+
 
 (* Types of curly braces.
    AQUOTE corresponds to the braces for antiquotation, i.e. '${...}'

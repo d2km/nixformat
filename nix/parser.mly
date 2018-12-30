@@ -12,11 +12,14 @@
 %token <string> STR
 %token <string> STR_START
 %token <string> STR_MID
-%token <string> STR_END
+%token STR_END
+%token <string> ISTR_START
+%token <string> ISTR_MID
+%token <int> ISTR_END
 %token <string> ID
-
+%token <string> SCOMMENT
+%token <string> MCOMMENT
 /* Tokens that stand for themselves */
-%token WS
 %token SELECT "."
 %token QMARK "?"
 %token CONCAT "++"
@@ -32,7 +35,8 @@
 %token AND "&&"
 %token OR "||"
 %token IMPL "->"
-%token ANTIQUOTE "${"
+%token AQUOTE_OPEN "${"
+%token AQUOTE_CLOSE
 %token LBRACE "{"
 %token RBRACE "}"
 %token LBRACK "["
@@ -45,8 +49,9 @@
 %token RPAREN ")"
 %token COLON ":"
 %token SEMICOLON ";"
-%token COMA ","
-
+%token COMMA ","
+%token ELLIPSIS "..."
+%token AS "@"
 /* Keywords */
 %token IMPORT "import"
 %token WITH "with"
@@ -55,6 +60,13 @@
 %token IN "in"
 %token INHERIT "inherit"
 %token NULL "null"
+%token IF "if"
+%token THEN "then"
+%token ELSE "else"
+%token ASSERT "assert"
+%token ORDEF "or"
+/* end of input */
+%token EOF
 
 %start <Types.expr> main
 
@@ -65,7 +77,7 @@
 %%
 
 main:
-| e = expr EOL
+| e = expr EOF
     { e }
 
 expr:
