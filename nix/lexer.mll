@@ -209,6 +209,7 @@ let _ =
       "with", WITH;
       "rec", REC;
       "let", LET;
+      "in", IN;
       "inherit", INHERIT;
       "null", NULL;
       "if" , IF;
