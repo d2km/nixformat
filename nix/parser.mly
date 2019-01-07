@@ -9,7 +9,6 @@
 %token <string> HPATH
 %token <string> URI
 %token <string> BOOL
-%token <string> STR
 %token <string> STR_START
 %token <string> STR_MID
 %token STR_END
@@ -17,8 +16,8 @@
 %token <string> ISTR_MID
 %token <int> ISTR_END
 %token <string> ID
-%token <string> SCOMMENT
-%token <string> MCOMMENT
+/* %token <string> SCOMMENT */
+/* %token <string> MCOMMENT */
 /* Tokens that stand for themselves */
 %token SELECT "."
 %token QMARK "?"
@@ -53,7 +52,6 @@
 %token ELLIPSIS "..."
 %token AS "@"
 /* Keywords */
-%token IMPORT "import"
 %token WITH "with"
 %token REC "rec"
 %token LET "let"
@@ -72,7 +70,7 @@
   open Types
 %}
 
-%start <expr> main
+%start <Types.expr> main
 
 %nonassoc "->"
 %left "||"
@@ -80,13 +78,9 @@
 %nonassoc "==" "!="
 %nonassoc "<" ">" "<=" ">="
 %right "//"
-%nonassoc "!"
 %left "-" "+"
 %left "*" "/"
 %right "++"
-%nonassoc "?"
-%nonassoc NEGATION
-%nonassoc "."
 
 %%
 
@@ -99,22 +93,23 @@ expr:
     { Cond(c, l, r) }
 | "with" w = expr ";" e = expr
     { With(w, e) }
-| "assert" c = expr ";" e = expr
-    { Assert(c, e) }
+| "assert" e1 = expr ";" e2 = expr
+    { Assert(e1, e2) }
 | "let" xs = nonempty_list(binding) "in" e = expr
     { Let(xs, e) }
-| e = expr_op
+| e = op_expr
     { e }
 | e = select_expr
     { e }
-| fun = atomic_expr; args = list(atomic_expr)
-    { Apply(fun, args) }
+| e = test_expr
+    { e }
+| f = atomic_expr; args = nonempty_list(atomic_expr)
+    { Apply(f, args) }
 
 select_expr:
-| id = ID "." path = attr_path
-    { Select(Id id, path) }
-| e = delimited("(", expr, ")") "." path = attr_path "or" defval = value
-    { SelectDef(e, path, defval) }
+| s = atomic_expr "." p = attr_path o = option(preceded("or", atomic_expr))
+    { Select(s, p, o) }
+
 
 attr_path:
 | p = separated_nonempty_list(".", attr_path_component)
@@ -135,6 +130,7 @@ attr_path_component:
 | "-" {Minus}
 | "*" {Mult}
 | "/" {Div}
+| "==" {Eq}
 | "!=" {Neq}
 | "||" {Or}
 | "&&" {And}
@@ -142,16 +138,40 @@ attr_path_component:
 | "//" {Merge}
 | "++" {Concat}
 
-expr_op:
+op_expr:
 | lhs = expr; op = bin_op; rhs = expr
     { BinaryOp(op, lhs, rhs) }
-| "-" e = expr %prec UMINUS
+| "-" e = atomic_expr
     { UnaryOp(Negate, e) }
-| "!" e = expr
+| "!" e = atomic_expr
     { UnaryOp(Not, e) }
 | e = atomic_expr
+    { e }
+
+%inline testable:
+| s = set
+    { Val s }
+| e = delimited("(", expr, ")")
+    { e }
+
+test_expr:
+e = testable "?" q = test_query
+    { Test(e, q) }
+
+/* by experimenting with the Nix repl, the query can be either an ID, or an
+antiquotation, or a double-quoted string */
+test_query:
+| id = ID
+    {Id id}
+| e = delimited("${", expr, "}$")
+    { e }
+| s = str
+    { Val s }
+
 
 atomic_expr:
+| id = ID
+    { Id id }
 | v = value
     { Val v }
 | e = delimited("(", expr, ")")
@@ -161,14 +181,14 @@ atomic_expr:
 | xs = list(pair(delimited("${", expr, "}$"), X)) { xs }
 
 value:
-| start = STR_START; mids = str_mid(STR_MID); STR_END
-    { Str(start, mids) }
-| start = ISTR_START; mids = istr_mid(ISTR_MID); i = ISTR_END
-    { Str(i, start, mids) }
+| s = str
+    { s }
+| s = istr
+    { s }
 | i = INT
     {Int i}
 | f = FLOAT
-    { Float i }
+    { Float f }
 | p = PATH
     { Path p }
 | sp = SPATH
@@ -181,23 +201,43 @@ value:
     { Bool b }
 | l = lambda
     { l }
-| "[" xs = list(expr) "]"
+| "null"
+    { Null }
+| l = nixlist
+    { l }
+| s = set
+    { s }
+
+/* double-quoted string */
+str:
+start = STR_START; mids = str_mid(STR_MID); STR_END
+    { Str(start, mids) }
+/* indented string */
+istr:
+start = ISTR_START; mids = str_mid(ISTR_MID); i = ISTR_END
+    { IStr(i, start, mids) }
+
+/* lists and sets */
+nixlist:
+xs = delimited("[", list(atomic_expr), "]")
     { List xs }
-| "{" xs = list(attr) "}"
+
+set:
+| xs = delimited("{", list(attr), "}")
     { AttSet xs }
-| "rec" "{" xs = list(attr) "}"
+| xs = preceded("rec", delimited("{", list(attr), "}"))
     { RecAttSet xs }
 
 attr:
-| idk = separated_pair(ID, "=", expr) ";"
-    { IdKey idk }
-| start = STR_START mids = str_mid(STR_MID) STR_END "=" e = expr ";"
-    { StrKey(Str(start, mids), e) }
+| idk = terminated(separated_pair(ID, "=", atomic_expr), ";")
+    { let (k, v) = idk in IdKey(k, v) }
+| sk = terminated(separated_pair(str, "=", atomic_expr), ";")
+    { let (k, v) = sk in StrKey(k, v) }
 | "inherit" prefix = option(delimited("(", ID, ")")) ids = list(ID) ";"
     { Inherit(prefix, ids) }
 
 binding:
-| kv = separated_pair(ID, "=", expr) ";"
+kv = separated_pair(ID, "=", expr) ";"
     { kv }
 
 lambda:
@@ -211,33 +251,11 @@ lambda:
     { Lambda(Alias id, e) }
 
 param_set:
-| "{" xs = separated_list(",", param) "}"
+| xs = delimited("{", separated_list(",", param), "}")
     { CompleteSet xs }
 | "{" xs = separated_nonempty_list(",", param) "," "..." "}"
     { IncompleteSet xs }
 
 param:
-| id = ID
-    { Param id }
-| id = ID "?" v = param_default_value
-    { DefaultParam(id, v) }
-
-param_default_value:
-| s = STR_START STR_END
-   { Str(s, []) }
-| i = INT
-   { Int i }
-| f = FLOAT
-   { Float f }
-| p = PATH
-   { Path p }
-| sp = SPATH
-   { SPATH sp }
-| hp = HPATH
-    { HPATH hp }
-| uri = URI
-    { Uri uri }
-| b = BOOL
-    { Bool of b }
-| l = lambda
-    { l }
+id = ID; v = option(preceded("?", value))
+    { (id, v) }

@@ -1,3 +1,4 @@
+(* Binary operators *)
 type binary_op =
     | Plus
     | Minus
@@ -7,31 +8,34 @@ type binary_op =
     | Lt
     | Lte
     | Gte
+    | Eq
     | Neq
     | Or
     | And
-    | Ipml
+    | Impl
     | Merge
     | Concat
 
+(* Unary operators *)
 type unary_op =
   | Negate
   | Not
 
+(* The top-level expression type *)
 type expr =
   | BinaryOp of binary_op * expr * expr
   | UnaryOp of unary_op * expr
   | Cond of expr * expr * expr
   | With of expr * expr
   | Assert of expr * expr
+  | Test of expr * expr
   | Let of (id * expr) list * expr
   | Val of value
   | Id of id
-  | Select of expr * expr list
-  | SelectDef of expr * expr list * value
+  | Select of expr * expr list * expr option
   | Apply of expr * expr list
 
-
+(* Possible values *)
 and value =
   (* Str is a string start, followed by arbitrary number of antiquotations and
      strings that separate them *)
@@ -50,7 +54,9 @@ and value =
   | List of expr list
   | AttSet of attr list
   | RecAttSet of attr list
+  | Null
 
+(* Patterns in lambdas definitions *)
 and pattern =
   | Alias of id
   | ParamSet of param_set
@@ -60,16 +66,21 @@ and param_set =
   | CompleteSet of param list
   | IncompleteSet of param list
 
-and param =
-  | Param of id
-  | DefaultParam of id * value
+and param = id * value option
 
+(* Attributes in attribute sets *)
 and attr =
-  | IdKey of id * value
+  | IdKey of id * expr
   (* Nix allows an aribtrary double-quoted strings as attribute names, so the
      first value in the tuple should be a string.
      TODO: use GADT *)
-  | StrKey of value * value
+  | StrKey of value * expr
   | Inherit of id option * id list
 
+(* Identifiers *)
 and id = string
+
+(* Interface for pretty-printing modules *)
+module type PPRINTER = sig
+  val print: out_channel -> expr -> unit
+end
