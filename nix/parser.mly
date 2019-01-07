@@ -99,17 +99,10 @@ expr:
     { Let(xs, e) }
 | e = op_expr
     { e }
-| e = select_expr
-    { e }
 | e = test_expr
     { e }
 | f = atomic_expr; args = nonempty_list(atomic_expr)
     { Apply(f, args) }
-
-select_expr:
-| s = atomic_expr "." p = attr_path o = option(preceded("or", atomic_expr))
-    { Select(s, p, o) }
-
 
 attr_path:
 | p = separated_nonempty_list(".", attr_path_component)
@@ -176,6 +169,12 @@ atomic_expr:
     { Val v }
 | e = delimited("(", expr, ")")
     { e }
+| e = select_expr
+    { e }
+
+select_expr:
+id = ID "." p = attr_path o = option(preceded("or", atomic_expr))
+    { Select(Id id, p, o) }
 
 %inline str_mid(X):
 | xs = list(pair(delimited("${", expr, "}$"), X)) { xs }
