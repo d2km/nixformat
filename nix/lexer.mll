@@ -309,7 +309,7 @@ rule get_tokens q s = parse
 | ("true" | "false") as b
     { Queue.add (BOOL b) q }
 (* keywords or identifies *)
-| ((alpha | '_')+ (alpha_digit | ['_' '\''])*) as id
+| ((alpha | '_')+ (alpha_digit | ['_' '\'' '-'])*) as id
     { Queue.add (try Hashtbl.find keyword_table id with Not_found -> ID id) q}
 (* comments *)
 | '#' ([^ '\n']* as c)
@@ -425,5 +425,4 @@ let rec next_token
   | None ->
     get_tokens q s lexbuf;
     next_token q s lexbuf
-
 }
