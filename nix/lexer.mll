@@ -53,7 +53,6 @@ exception Error of string
  *   | COMMA
  *   | ELLIPSIS
  *   | AS
- *   | IMPORT
  *   | WITH
  *   | REC
  *   | LET
@@ -117,7 +116,6 @@ exception Error of string
   | COMMA -> "COMMA"
   | ELLIPSIS -> "ELLIPSIS"
   | AS -> "AS"
-  | IMPORT -> "IMPORT"
   | WITH -> "WITH"
   | REC -> "REC"
   | LET -> "LET"
@@ -207,8 +205,7 @@ let _ =
 let keyword_table = Hashtbl.create 10
 let _ =
   List.iter (fun (kwd, tok) -> Hashtbl.add keyword_table kwd tok)
-    [ "import", IMPORT;
-      "with", WITH;
+    [ "with", WITH;
       "rec", REC;
       "let", LET;
       "in", IN;
