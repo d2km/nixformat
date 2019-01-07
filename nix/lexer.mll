@@ -82,8 +82,8 @@ exception Error of string
   | ISTR_MID s -> Printf.sprintf "STR_MID %s" s
   | ISTR_END i -> Printf.sprintf "STR_END %d" i
   | ID s -> Printf.sprintf "ID %s" s
-  | SCOMMENT s -> Printf.sprintf "SCOMMENT %s" s
-  | MCOMMENT s -> Printf.sprintf "MCOMMENT %s" s
+  (* | SCOMMENT s -> Printf.sprintf "SCOMMENT %s" s
+   * | MCOMMENT s -> Printf.sprintf "MCOMMENT %s" s *)
   | SELECT -> "SELECT"
   | QMARK -> "QMARK"
   | CONCAT -> "CONCAT"
@@ -313,9 +313,12 @@ rule get_tokens q s = parse
     { Queue.add (try Hashtbl.find keyword_table id with Not_found -> ID id) q}
 (* comments *)
 | '#' ([^ '\n']* as c)
-    { Queue.add (SCOMMENT c) q}
+    { (* Queue.add (SCOMMENT c) q *) ignore c; get_tokens q s lexbuf}
 | "/*"
-    { Queue.add (comment (Buffer.create 64) lexbuf) q }
+    { (* Queue.add (comment (Buffer.create 64) lexbuf) q *)
+      comment (Buffer.create 64) lexbuf;
+      get_tokens q s lexbuf
+    }
 (* the following three tokens change the braces stack *)
 | "${"
     { Queue.add AQUOTE_OPEN q; s := AQUOTE :: !s }
@@ -357,7 +360,7 @@ and comment buf = parse
   | '\n'
     {Lexing.new_line lexbuf; Buffer.add_char buf '\n'; comment buf lexbuf}
   | "*/"
-    { MCOMMENT (Buffer.contents buf) }
+    { (* MCOMMENT (Buffer.contents buf) *) ()}
   | _ as c
     { Buffer.add_char buf c; comment buf lexbuf }
 
