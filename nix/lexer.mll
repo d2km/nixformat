@@ -12,7 +12,6 @@ exception Error of string
  *   | HPATH of string
  *   | URI of string
  *   | BOOL of string
- *   | STR of string
  *   | STR_START of string
  *   | STR_MID of string
  *   | STR_END
@@ -77,7 +76,6 @@ exception Error of string
   | HPATH s -> Printf.sprintf "HPATH %s" s
   | URI s -> Printf.sprintf "URI %s" s
   | BOOL s -> Printf.sprintf "BOOL %s" s
-  | STR s -> Printf.sprintf "STR %s" s
   | STR_START s -> Printf.sprintf "STR_START %s" s
   | STR_MID s -> Printf.sprintf "STR_MID %s" s
   | STR_END -> "STR_END"
