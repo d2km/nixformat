@@ -71,7 +71,7 @@ and param = id * expr option
 and binding =
   (* The first expr should be attrpath, which is the same as in Select *)
   | AttrPath of expr list * expr
-  | Inherit of expr list option * id list
+  | Inherit of expr option * id list
 
 (* Identifiers *)
 and id = string

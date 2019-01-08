@@ -285,7 +285,7 @@ set:
 binding:
 | kv = terminated(separated_pair(attr_path, "=", expr0), ";")
     { let (k, v) = kv in AttrPath(k, v) }
-| xs = delimited("inherit", pair(option(delimited("(", attr_path, ")")), list(ID)), ";")
+| xs = delimited("inherit", pair(option(delimited("(", expr0, ")")), list(ID)), ";")
     { let (prefix, ids) = xs in Inherit(prefix, ids) }
 
 lambda:

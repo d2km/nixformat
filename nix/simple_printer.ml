@@ -202,12 +202,12 @@ module SimplePrinter : PPRINTER = struct
       output_string chan " = ";
       print chan e;
       output_char chan ';'
-    | Inherit(maybe_es, ids) ->
+    | Inherit(maybe_e, ids) ->
       output_string chan "inherit ";
       (
-        match maybe_es with
-        | Some es ->
-          separated_list chan "." es;
+        match maybe_e with
+        | Some e ->
+          print_paren chan e
         | None -> ()
       );
       List.iter (fun x ->
