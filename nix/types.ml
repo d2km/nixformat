@@ -29,7 +29,7 @@ type expr =
   | With of expr * expr
   | Assert of expr * expr
   | Test of expr * expr list
-  | Let of (id * expr) list * expr
+  | Let of binding list * expr
   | Val of value
   | Id of id
   | Select of expr * expr list * expr option
@@ -53,8 +53,8 @@ and value =
   | Bool of string
   | Lambda of pattern * expr
   | List of expr list
-  | AttSet of attr list
-  | RecAttSet of attr list
+  | AttSet of binding list
+  | RecAttSet of binding list
   | Null
 
 (* Patterns in lambdas definitions *)
@@ -67,8 +67,8 @@ and param_set = param list * unit option
 
 and param = id * expr option
 
-(* Attributes in attribute sets *)
-and attr =
+(* Bindings in attribute sets and let expressions *)
+and binding =
   | IdKey of id * expr
   (* Nix allows an aribtrary double-quoted strings as attribute names, so the
      first value in the tuple should be a string.

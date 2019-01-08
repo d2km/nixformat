@@ -29,10 +29,9 @@ module SimplePrinter : PPRINTER = struct
       separated_list chan ", " attpath
     | Let(bindings, e) ->
       output_string chan "let ";
-      List.iter (fun (id, v) ->
-          output_string chan (id ^ "=");
-          print chan v;
-          output_char chan ';'
+      List.iter (fun binding ->
+          print_binding chan binding;
+          output_char chan ' '
         ) bindings;
       output_string chan " in ";
       print chan e
@@ -113,14 +112,14 @@ module SimplePrinter : PPRINTER = struct
     | AttSet atts ->
       output_string chan "{ ";
       List.iter (fun att ->
-          print_att chan att;
+          print_binding chan att;
           output_char chan ' '
         ) atts;
       output_char chan '}'
     | RecAttSet atts ->
       output_string chan "rec { ";
       List.iter (fun att ->
-          print_att chan att;
+          print_binding chan att;
           output_char chan ' '
         ) atts;
       output_char chan '}'
@@ -197,7 +196,7 @@ module SimplePrinter : PPRINTER = struct
       print chan e
     | None -> ()
 
-  and print_att chan = function
+  and print_binding chan = function
     | IdKey(k, e) ->
       output_string chan k;
       output_string chan " = ";

@@ -277,22 +277,18 @@ xs = delimited("[", list(expr14), "]")
     { List xs }
 
 set:
-| xs = delimited("{", list(attr), "}")
+| xs = delimited("{", list(binding), "}")
     { AttSet xs }
-| xs = preceded("rec", delimited("{", list(attr), "}"))
+| xs = preceded("rec", delimited("{", list(binding), "}"))
     { RecAttSet xs }
 
-attr:
-| kv = binding
+binding:
+| kv = terminated(separated_pair(ID, "=", expr0), ";")
     { let (k, v) = kv in IdKey(k, v) }
 | sk = terminated(separated_pair(str, "=", expr0), ";")
     { let (k, v) = sk in StrKey(k, v) }
 | xs = delimited("inherit", pair(option(delimited("(", ID, ")")), list(ID)), ";")
     { let (prefix, ids) = xs in Inherit(prefix, ids) }
-
-binding:
-kv = terminated(separated_pair(ID, "=", expr0), ";")
-    { kv }
 
 lambda:
 | id = ID; "@"; p = param_set; ":"; e = expr0
