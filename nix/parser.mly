@@ -72,37 +72,151 @@
 
 %start <Types.expr> main
 
-%nonassoc "->"
-%left "||"
-%left "&&"
-%nonassoc "==" "!="
-%nonassoc "<" ">" "<=" ">="
-%right "//"
-%left "-" "+"
-%left "*" "/"
-%right "++"
-
 %%
 
 main:
-| e = expr EOF
+| e = expr0 EOF
     { e }
 
-expr:
-| "if" c = expr "then" l = expr "else" r = expr
-    { Cond(c, l, r) }
-| "with" w = expr ";" e = expr
-    { With(w, e) }
-| "assert" e1 = expr ";" e2 = expr
+expr0:
+| "if"; e1 = expr0; "then"; e2 = expr0; "else"; e3 = expr0
+    { Cond(e1, e2, e3) }
+| "with"; e1 = expr0; ";"; e2 = expr0
+    { With(e1, e2) }
+| "assert"; e1 = expr0; ";"; e2 = expr0
     { Assert(e1, e2) }
-| "let" xs = nonempty_list(binding) "in" e = expr
+| "let"; xs = nonempty_list(binding); "in"; e = expr0
     { Let(xs, e) }
-| e = op_expr
+| l = lambda
+    { Val l }
+| e = expr1
     { e }
-| e = test_expr
+
+/*
+   rules expr1-expr14 are almost direct translation of the operator
+   precedence table:
+   https://nixos.org/nix/manual/#sec-language-operators
+ */
+
+%inline binary_expr(Lhs, Op, Rhs):
+lhs = Lhs; op = Op; rhs = Rhs
+    { BinaryOp(op, lhs, rhs) }
+
+expr1:
+| e = binary_expr(expr1, "->" {Impl}, expr2)
     { e }
-| f = atomic_expr; args = nonempty_list(atomic_expr)
-    { Apply(f, args) }
+| e = expr2
+    { e }
+
+expr2:
+| e = binary_expr(expr2, "||" {Or}, expr3)
+    { e }
+| e = expr3
+    { e }
+
+expr3:
+| e = binary_expr(expr3, "&&" {And}, expr4)
+    { e }
+| e = expr4
+    { e }
+
+%inline expr4_ops:
+| "==" {Eq}
+| "!=" {Neq}
+
+expr4:
+| e = binary_expr(expr5, expr4_ops, expr5)
+    { e }
+| e = expr5
+    { e }
+
+%inline expr5_ops:
+| "<" {Lt}
+| ">" {Gt}
+| "<=" {Lte}
+| ">=" {Gte}
+
+expr5:
+| e = binary_expr(expr6, expr5_ops, expr6)
+    { e }
+| e = expr6
+    { e }
+
+expr6:
+| e = binary_expr(expr7, "//" {Merge}, expr6)
+    { e }
+| e = expr7
+    { e }
+
+expr7:
+| e = preceded("!", expr7)
+    { UnaryOp(Not, e) }
+| e = expr8
+    { e }
+
+%inline expr8_ops:
+| "+" {Plus}
+| "-" {Minus}
+
+expr8:
+| e = binary_expr(expr8, expr8_ops, expr9)
+    { e }
+| e = expr9
+    { e }
+
+%inline expr9_ops:
+| "*" {Mult}
+| "/" {Div}
+
+expr9:
+| e = binary_expr(expr9, expr9_ops, expr10)
+    { e }
+| e = expr10
+    { e }
+
+expr10:
+| e = binary_expr(expr11, "++" {Concat}, expr10)
+    { e }
+| e = expr11
+    { e }
+
+expr11:
+| e = expr12 "?" p = attr_path
+    { Test(e, p) }
+| e = expr12
+    { e }
+
+expr12:
+| e = preceded("-", expr13)
+    { UnaryOp(Negate, e) }
+| e = expr13
+    { e }
+
+expr13:
+| f = expr13; arg = expr14
+    { Apply(f, arg) }
+| e = expr14
+    { e }
+
+%inline selectable:
+| s = set
+    { Val s }
+| id = ID
+    { Id id }
+
+expr14:
+| e = selectable; "."; p = attr_path; o = option(preceded("or", atomic_expr))
+    { Select(e, p, o) }
+| e = atomic_expr
+    { e }
+
+atomic_expr:
+| id = ID
+    { Id id }
+| v = value
+    { Val v }
+| e = delimited("(", expr0, ")")
+    { e }
 
 attr_path:
 | p = separated_nonempty_list(".", attr_path_component)
@@ -111,73 +225,10 @@ attr_path:
 attr_path_component:
 | id = ID
     {Id id}
-| e = delimited("${", expr, "}$")
-    { e }
-
-%inline bin_op:
-| "<" {Lt}
-| ">" {Gt}
-| "<=" {Lte}
-| ">=" {Gte}
-| "+" {Plus}
-| "-" {Minus}
-| "*" {Mult}
-| "/" {Div}
-| "==" {Eq}
-| "!=" {Neq}
-| "||" {Or}
-| "&&" {And}
-| "->" {Impl}
-| "//" {Merge}
-| "++" {Concat}
-
-op_expr:
-| lhs = expr; op = bin_op; rhs = expr
-    { BinaryOp(op, lhs, rhs) }
-| "-" e = atomic_expr
-    { UnaryOp(Negate, e) }
-| "!" e = atomic_expr
-    { UnaryOp(Not, e) }
-| e = atomic_expr
-    { e }
-
-%inline testable:
-| s = set
-    { Val s }
-| e = delimited("(", expr, ")")
-    { e }
-
-test_expr:
-e = testable "?" q = test_query
-    { Test(e, q) }
-
-/* by experimenting with the Nix repl, the query can be either an ID, or an
-antiquotation, or a double-quoted string */
-test_query:
-| id = ID
-    {Id id}
-| e = delimited("${", expr, "}$")
-    { e }
+| e = delimited("${", expr0, "}$")
+    { Aquote e }
 | s = str
     { Val s }
-
-
-atomic_expr:
-| id = ID
-    { Id id }
-| v = value
-    { Val v }
-| e = delimited("(", expr, ")")
-    { e }
-| e = select_expr
-    { e }
-
-select_expr:
-id = ID "." p = attr_path o = option(preceded("or", atomic_expr))
-    { Select(Id id, p, o) }
-
-%inline str_mid(X):
-| xs = list(pair(delimited("${", expr, "}$"), X)) { xs }
 
 value:
 | s = str
@@ -198,8 +249,6 @@ value:
     { Uri uri }
 | b = BOOL
     { Bool b }
-| l = lambda
-    { l }
 | "null"
     { Null }
 | l = nixlist
@@ -207,10 +256,14 @@ value:
 | s = set
     { s }
 
+%inline str_mid(X):
+xs = list(pair(delimited("${", expr0, "}$"), X)) { xs }
+
 /* double-quoted string */
 str:
 start = STR_START; mids = str_mid(STR_MID); STR_END
     { Str(start, mids) }
+
 /* indented string */
 istr:
 start = ISTR_START; mids = str_mid(ISTR_MID); i = ISTR_END
@@ -218,7 +271,7 @@ start = ISTR_START; mids = str_mid(ISTR_MID); i = ISTR_END
 
 /* lists and sets */
 nixlist:
-xs = delimited("[", list(atomic_expr), "]")
+xs = delimited("[", list(expr14), "]")
     { List xs }
 
 set:
@@ -228,33 +281,40 @@ set:
     { RecAttSet xs }
 
 attr:
-| idk = terminated(separated_pair(ID, "=", atomic_expr), ";")
-    { let (k, v) = idk in IdKey(k, v) }
-| sk = terminated(separated_pair(str, "=", atomic_expr), ";")
+| kv = binding
+    { let (k, v) = kv in IdKey(k, v) }
+| sk = terminated(separated_pair(str, "=", expr0), ";")
     { let (k, v) = sk in StrKey(k, v) }
-| "inherit" prefix = option(delimited("(", ID, ")")) ids = list(ID) ";"
-    { Inherit(prefix, ids) }
+| xs = delimited("inherit", pair(option(delimited("(", ID, ")")), list(ID)), ";")
+    { let (prefix, ids) = xs in Inherit(prefix, ids) }
 
 binding:
-kv = separated_pair(ID, "=", expr) ";"
+kv = terminated(separated_pair(ID, "=", expr0), ";")
     { kv }
 
 lambda:
-| id = ID "@" p = param_set ":" e = expr
+| id = ID; "@"; p = param_set; ":"; e = expr0
     { Lambda(AliasedSet(id, p), e) }
-| p = param_set "@" id = ID ":" e = expr
+| p = param_set; "@"; id = ID; ":"; e = expr0
     { Lambda(AliasedSet(id, p), e) }
-| p = param_set ":" e = expr
+| p = param_set; ":"; e = expr0
     { Lambda(ParamSet p, e) }
-| id = ID ":" e = expr
+| id = ID; ":"; e = expr0
     { Lambda(Alias id, e) }
 
+
 param_set:
-| xs = delimited("{", separated_list(",", param), "}")
-    { CompleteSet xs }
-| "{" xs = separated_nonempty_list(",", param) "," "..." "}"
-    { IncompleteSet xs }
+| ps = delimited("{", params, "}")
+    { ps }
+
+params:
+| "..."
+    { ([], Some ()) }
+| p = param
+    { ([p], None) }
+| p = param; ","; ps = params
+    { let (prev, ellipsis) = ps in (p :: prev, ellipsis) }
 
 param:
-id = ID; v = option(preceded("?", value))
-    { (id, v) }
+p = pair(ID, option(preceded("?", expr0)))
+    { p }

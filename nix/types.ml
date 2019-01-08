@@ -28,12 +28,13 @@ type expr =
   | Cond of expr * expr * expr
   | With of expr * expr
   | Assert of expr * expr
-  | Test of expr * expr
+  | Test of expr * expr list
   | Let of (id * expr) list * expr
   | Val of value
   | Id of id
   | Select of expr * expr list * expr option
-  | Apply of expr * expr list
+  | Apply of expr * expr
+  | Aquote of expr
 
 (* Possible values *)
 and value =
@@ -62,11 +63,9 @@ and pattern =
   | ParamSet of param_set
   | AliasedSet of id * param_set
 
-and param_set =
-  | CompleteSet of param list
-  | IncompleteSet of param list
+and param_set = param list * unit option
 
-and param = id * value option
+and param = id * expr option
 
 (* Attributes in attribute sets *)
 and attr =

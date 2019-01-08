@@ -8,11 +8,11 @@ module SimplePrinter : PPRINTER = struct
       print_uop chan op; print chan e
     | Cond(e1, e2, e3) ->
       output_string chan "if ";
-      print_paren chan e1;
+      print chan e1;
       output_string chan " then ";
       print_paren chan e2;
       output_string chan " else ";
-      print_paren chan e3
+      print chan e3
     | With(e1, e2) ->
       output_string chan "with ";
       print chan e1;
@@ -23,10 +23,10 @@ module SimplePrinter : PPRINTER = struct
       print chan e1;
       output_string chan "; ";
       print chan e2
-    | Test(e1, e2) ->
+    | Test(e1, attpath) ->
       print chan e1;
       output_string chan "? ";
-      print chan e2
+      separated_list chan ", " attpath
     | Let(bindings, e) ->
       output_string chan "let ";
       List.iter (fun (id, v) ->
@@ -55,17 +55,16 @@ module SimplePrinter : PPRINTER = struct
           ()
       )
 
-    | Apply(f, args) ->
+    | Apply(f, arg) ->
       print chan f;
-      List.iter (fun arg ->
-          output_char chan ' ';
-          print_paren chan arg
-        ) args;
+      output_char chan ' ';
+      delimited chan "(" arg ")"
+
+    | Aquote e ->
+      delimited chan "${" e "}"
 
   and print_paren chan e =
-    output_char chan '(';
-    print chan e;
-    output_char chan ')'
+    delimited chan "(" e ")"
 
   and print_path_component chan = function
     | (Val _) as e -> print chan e
@@ -169,28 +168,33 @@ module SimplePrinter : PPRINTER = struct
     print chan e
 
   and print_param_set chan = function
-    | CompleteSet (head :: tail) ->
+    | (head :: tail), Some () ->
       print_param chan head;
       List.iter (fun x ->
-          output_string chan " ,";
-          print_param chan x
-        ) tail;
-    | CompleteSet [] ->
-      ()
-    | IncompleteSet (head :: tail) ->
-      print_param chan head;
-      List.iter (fun x ->
-          output_string chan " ,";
+          output_string chan ", ";
           print_param chan x
         ) tail;
       output_string chan ", ..."
-    | IncompleteSet [] ->
+
+    | (head :: tail), None ->
+      print_param chan head;
+      List.iter (fun x ->
+          output_string chan ", ";
+          print_param chan x
+        ) tail
+
+    | [], Some () ->
       output_string chan "..."
 
-  and print_param chan (id, maybe_val) =
+    | [], None ->
+      ()
+
+  and print_param chan (id, maybe_expr) =
     output_string chan id;
-    match maybe_val with
-    | Some v -> print_val chan v
+    match maybe_expr with
+    | Some e ->
+      output_string chan "? ";
+      print chan e
     | None -> ()
 
   and print_att chan = function
@@ -219,6 +223,26 @@ module SimplePrinter : PPRINTER = struct
           output_string chan x
         ) ids;
       output_char chan ';'
+
+  and delimited chan l e r =
+    output_string chan l;
+    output_char chan ' ';
+    print chan e;
+    output_string chan r
+
+  and separated_list chan sep xs =
+    match xs with
+    | head :: tail ->
+      print chan head;
+      List.iter (fun e ->
+          output_string chan sep;
+          print chan e
+        ) tail
+    | [] ->
+      ()
+
+
+
 end
 
 include SimplePrinter
