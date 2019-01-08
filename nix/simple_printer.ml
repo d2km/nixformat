@@ -226,7 +226,6 @@ module SimplePrinter : PPRINTER = struct
 
   and delimited chan l e r =
     output_string chan l;
-    output_char chan ' ';
     print chan e;
     output_string chan r
 
