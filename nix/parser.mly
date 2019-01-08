@@ -203,6 +203,8 @@ expr13:
     { Val s }
 | id = ID
     { Id id }
+| e = delimited("(", expr0, ")")
+    { e }
 
 expr14:
 | e = selectable; "."; p = attr_path; o = option(preceded("or", atomic_expr))
