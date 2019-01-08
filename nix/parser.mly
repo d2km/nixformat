@@ -207,7 +207,7 @@ expr13:
     { e }
 
 expr14:
-| e = selectable; "."; p = attr_path; o = option(preceded("or", atomic_expr))
+| e = selectable; "."; p = attr_path; o = option(preceded("or", expr14))
     { Select(e, p, o) }
 | e = atomic_expr
     { e }
