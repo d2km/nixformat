@@ -6,7 +6,7 @@ let out = ref stdout
 let main () =
   Arg.parse [] (fun x -> file_names := x :: !file_names) "";
   let files = match !file_names with
-    | [] -> [stdin, "<stding>"]
+    | [] -> [stdin, "<stdin>"]
     | names -> List.map (fun n -> open_in n, n) names
   in
   List.iter (fun (file, name) ->
