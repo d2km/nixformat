@@ -283,11 +283,9 @@ set:
     { RecAttSet xs }
 
 binding:
-| kv = terminated(separated_pair(ID, "=", expr0), ";")
-    { let (k, v) = kv in IdKey(k, v) }
-| sk = terminated(separated_pair(str, "=", expr0), ";")
-    { let (k, v) = sk in StrKey(k, v) }
-| xs = delimited("inherit", pair(option(delimited("(", expr14, ")")), list(ID)), ";")
+| kv = terminated(separated_pair(attr_path, "=", expr0), ";")
+    { let (k, v) = kv in AttrPath(k, v) }
+| xs = delimited("inherit", pair(option(delimited("(", attr_path, ")")), list(ID)), ";")
     { let (prefix, ids) = xs in Inherit(prefix, ids) }
 
 lambda:

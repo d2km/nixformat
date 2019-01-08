@@ -197,22 +197,17 @@ module SimplePrinter : PPRINTER = struct
     | None -> ()
 
   and print_binding chan = function
-    | IdKey(k, e) ->
-      output_string chan k;
+    | AttrPath(es, e) ->
+      separated_list chan "." es;
       output_string chan " = ";
       print chan e;
       output_char chan ';'
-    | StrKey(v, e) ->
-      print_val chan v;
-      output_string chan " = ";
-      print chan e;
-      output_char chan ';'
-    | Inherit(maybe_expr, ids) ->
+    | Inherit(maybe_es, ids) ->
       output_string chan "inherit ";
       (
-        match maybe_expr with
-        | Some e ->
-          print_paren chan e;
+        match maybe_es with
+        | Some es ->
+          separated_list chan "." es;
         | None -> ()
       );
       List.iter (fun x ->

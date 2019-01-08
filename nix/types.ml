@@ -69,12 +69,9 @@ and param = id * expr option
 
 (* Bindings in attribute sets and let expressions *)
 and binding =
-  | IdKey of id * expr
-  (* Nix allows an aribtrary double-quoted strings as attribute names, so the
-     first value in the tuple should be a string.
-     TODO: use GADT *)
-  | StrKey of value * expr
-  | Inherit of expr option * id list
+  (* The first expr should be attrpath, which is the same as in Select *)
+  | AttrPath of expr list * expr
+  | Inherit of expr list option * id list
 
 (* Identifiers *)
 and id = string
