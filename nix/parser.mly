@@ -287,7 +287,7 @@ binding:
     { let (k, v) = kv in IdKey(k, v) }
 | sk = terminated(separated_pair(str, "=", expr0), ";")
     { let (k, v) = sk in StrKey(k, v) }
-| xs = delimited("inherit", pair(option(delimited("(", ID, ")")), list(ID)), ";")
+| xs = delimited("inherit", pair(option(delimited("(", expr14, ")")), list(ID)), ";")
     { let (prefix, ids) = xs in Inherit(prefix, ids) }
 
 lambda:

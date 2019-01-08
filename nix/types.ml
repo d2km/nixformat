@@ -74,7 +74,7 @@ and binding =
      first value in the tuple should be a string.
      TODO: use GADT *)
   | StrKey of value * expr
-  | Inherit of id option * id list
+  | Inherit of expr option * id list
 
 (* Identifiers *)
 and id = string
