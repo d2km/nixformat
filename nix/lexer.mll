@@ -221,7 +221,7 @@ let char_tokens = ['.' '?' '!' '=' '<' '>' '[' ']' '+' '-' '*' '/' '(' ')' ':' '
 
 rule get_tokens q s = parse
 (* skip whitespeces *)
-| [' ' '\t']
+| [' ' '\t' '\r']
     { get_tokens q s lexbuf }
 (* increase line count for new lines *)
 | '\n'
