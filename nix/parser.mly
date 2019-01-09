@@ -103,7 +103,7 @@ lhs = Lhs; op = Op; rhs = Rhs
     { BinaryOp(op, lhs, rhs) }
 
 expr1:
-| e = binary_expr(expr1, "->" {Impl}, expr2)
+| e = binary_expr(expr2, "->" {Impl}, expr1)
     { e }
 | e = expr2
     { e }
