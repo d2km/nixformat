@@ -9,7 +9,9 @@ let main () =
     | [] -> [stdin, "<stdin>"]
     | names -> List.map (fun n -> open_in n, n) names
   in
-  List.iter (fun (file, name) ->
+  files
+  |> List.rev
+  |> List.iter (fun (file, name) ->
       let lexbuf = Lexer.set_filename name (Lexing.from_channel file) in
       let q, s = Queue.create (), ref [] in
       try
@@ -22,6 +24,6 @@ let main () =
         Printf.eprintf "lexing error: %s\n" msg
       | Parser.Error ->
         Printf.eprintf "parse error at: %s\n" (Lexer.print_position lexbuf)
-    ) files
+    )
 
 let () = main ()
