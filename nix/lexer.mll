@@ -214,7 +214,7 @@ let path_chr = alpha_digit | ['.' '_' '-' '+']
 let path = path_chr* ('/' path_chr+)+
 let spath = alpha_digit path_chr* ('/' path_chr+)*
 let uri_chr = ['%' '/' '?' ':' '@' '&' '=' '+' '$' ',' '-' '_' '.' '!' '~' '*' '\'']
-let scheme = "http" 's'? | "ftp" | "ssh" | "git" | "mirror"
+let scheme = "http" 's'? | "ftp" | "ssh" | "git" | "mirror" | "svn"
 let uri = scheme ':' (alpha_digit | uri_chr)+
 (* let uri = alpha (alpha_digit | ['+' '-' '.'])* ':' (alpha_digit | uri_chr)+ *)
 let char_tokens = ['.' '?' '!' '=' '<' '>' '[' ']' '+' '-' '*' '/' '(' ')' ':' ';' ',' '@']
