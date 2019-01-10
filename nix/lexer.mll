@@ -1,71 +1,7 @@
 {
-  open Parser
+open Parser
 
 exception Error of string
-
-let print_token = function
-  | INT s -> Printf.sprintf "INT %s" s
-  | FLOAT s -> Printf.sprintf "FLOAT %s" s
-  | PATH s -> Printf.sprintf "PATH %s" s
-  | SPATH s -> Printf.sprintf "SPATH %s" s
-  | HPATH s -> Printf.sprintf "HPATH %s" s
-  | URI s -> Printf.sprintf "URI %s" s
-  | BOOL s -> Printf.sprintf "BOOL %s" s
-  | STR_START s -> Printf.sprintf "STR_START %s" s
-  | STR_MID s -> Printf.sprintf "STR_MID %s" s
-  | STR_END -> "STR_END"
-  | ISTR_START s -> Printf.sprintf "STR_START %s" s
-  | ISTR_MID s -> Printf.sprintf "STR_MID %s" s
-  | ISTR_END i -> Printf.sprintf "STR_END %d" i
-  | ID s -> Printf.sprintf "ID %s" s
-  (* | SCOMMENT s -> Printf.sprintf "SCOMMENT %s" s
-   * | MCOMMENT s -> Printf.sprintf "MCOMMENT %s" s *)
-  | SELECT -> "SELECT"
-  | QMARK -> "QMARK"
-  | CONCAT -> "CONCAT"
-  | NOT -> "NOT"
-  | MERGE -> "MERGE"
-  | ASSIGN -> "ASSIGN"
-  | LT -> "LT"
-  | LTE -> "LTE"
-  | GT -> "GT"
-  | GTE -> "GTE"
-  | EQ -> "EQ"
-  | NEQ -> "NEQ"
-  | AND -> "AND"
-  | OR -> "OR"
-  | IMPL -> "IMPL"
-  | AQUOTE_OPEN -> "AQUOTE_OPEN"
-  | AQUOTE_CLOSE -> "AQUOTE_CLOSE"
-  | LBRACE -> "LBRACE"
-  | RBRACE -> "RBRACE"
-  | LBRACK -> "LBRACK"
-  | RBRACK -> "RBRACK"
-  | PLUS -> "PLUS"
-  | MINUS -> "MINUS"
-  | TIMES -> "TIMES"
-  | SLASH -> "SLASH"
-  | LPAREN -> "LPAREN"
-  | RPAREN -> "RPAREN"
-  | COLON -> "COLON"
-  | SEMICOLON -> "SEMICOLON"
-  | COMMA -> "COMMA"
-  | ELLIPSIS -> "ELLIPSIS"
-  | AS -> "AS"
-  | WITH -> "WITH"
-  | REC -> "REC"
-  | LET -> "LET"
-  | IN -> "IN"
-  | INHERIT -> "INHERIT"
-  | NULL -> "NULL"
-  | IF -> "IF"
-  | THEN -> "THEN"
-  | ELSE -> "ELSE"
-  | ASSERT -> "ASSERT"
-  | ORDEF -> "ORDEF"
-  | EOF -> "EOF"
-
-
 
 (* Types of curly braces.
    AQUOTE corresponds to the braces for antiquotation, i.e. '${...}'
