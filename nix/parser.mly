@@ -63,6 +63,9 @@
 %token ELSE "else"
 %token ASSERT "assert"
 %token ORDEF "or"
+/* A special token to denote {} */
+%token EMPTY_CURLY "{}"
+
 /* end of input */
 %token EOF
 
@@ -277,6 +280,10 @@ xs = delimited("[", list(expr14), "]")
     { List xs }
 
 set:
+| "{}"
+    { AttSet [] }
+| "rec"; "{}"
+    { RecAttSet [] }
 | xs = delimited("{", list(binding), "}")
     { AttSet xs }
 | xs = preceded("rec", delimited("{", list(binding), "}"))
@@ -299,7 +306,9 @@ lambda:
     { Lambda(Alias id, e) }
 
 
-param_set:
+%inline param_set:
+| "{}"
+    { ([], None) }
 | ps = delimited("{", params, "}")
     { ps }
 

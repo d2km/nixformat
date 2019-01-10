@@ -272,6 +272,15 @@ rule get_tokens q s = parse
         let err = Printf.sprintf "Unbalanced '}' at %s\n" pos in
         raise (Error err)
     }
+(* a special token to avoid parser conflicts on param sets and attr sets *)
+| '{' [' ' '\r' '\t' '\n']* as ws '}'
+  {
+    (* change the line number *)
+    String.iter (fun c ->
+        if c == '\n' then Lexing.new_line lexbuf else ()
+      ) ws;
+    Queue.add EMPTY_CURLY q
+  }
 (* a double-quoted string *)
 | '"'
     { string `Start (Buffer.create 64) q lexbuf }
