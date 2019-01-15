@@ -107,19 +107,16 @@ lhs = Lhs; op = Op; rhs = Rhs
 
 expr1:
 | e = binary_expr(expr2, "->" {Impl}, expr1)
-    { e }
 | e = expr2
     { e }
 
 expr2:
 | e = binary_expr(expr2, "||" {Or}, expr3)
-    { e }
 | e = expr3
     { e }
 
 expr3:
 | e = binary_expr(expr3, "&&" {And}, expr4)
-    { e }
 | e = expr4
     { e }
 
@@ -129,7 +126,6 @@ expr3:
 
 expr4:
 | e = binary_expr(expr5, expr4_ops, expr5)
-    { e }
 | e = expr5
     { e }
 
@@ -141,13 +137,11 @@ expr4:
 
 expr5:
 | e = binary_expr(expr6, expr5_ops, expr6)
-    { e }
 | e = expr6
     { e }
 
 expr6:
 | e = binary_expr(expr7, "//" {Merge}, expr6)
-    { e }
 | e = expr7
     { e }
 
@@ -163,7 +157,6 @@ expr7:
 
 expr8:
 | e = binary_expr(expr8, expr8_ops, expr9)
-    { e }
 | e = expr9
     { e }
 
@@ -173,13 +166,11 @@ expr8:
 
 expr9:
 | e = binary_expr(expr9, expr9_ops, expr10)
-    { e }
 | e = expr10
     { e }
 
 expr10:
 | e = binary_expr(expr11, "++" {Concat}, expr10)
-    { e }
 | e = expr11
     { e }
 
