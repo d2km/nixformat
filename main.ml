@@ -17,7 +17,7 @@ let main () =
       try
         lexbuf
         |> Parser.main (Lexer.next_token q s)
-        |> SimplePrinter.print !out;
+        |> Simple_printer.print !out;
         output_char !out '\n'
       with
       | Lexer.Error msg ->

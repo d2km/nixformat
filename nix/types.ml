@@ -75,8 +75,3 @@ and binding =
 
 (* Identifiers *)
 and id = string
-
-(* Interface for pretty-printing modules *)
-module type PPRINTER = sig
-  val print: out_channel -> expr -> unit
-end

@@ -1,6 +1,6 @@
-open Types
+module SimplePrinter : Pprinter.PPRINTER = struct
+  open Nix.Ast
 
-module SimplePrinter : PPRINTER = struct
   let rec print chan = function
     | BinaryOp(op, lhs, rhs) ->
       print chan lhs; print_bop chan op; print chan rhs
@@ -231,8 +231,6 @@ module SimplePrinter : PPRINTER = struct
         ) tail
     | [] ->
       ()
-
-
 
 end
 
