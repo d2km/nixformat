@@ -1,5 +1,5 @@
 {
-open Parser
+open Tokens
 
 exception Error of string
 

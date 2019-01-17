@@ -3,7 +3,7 @@
 
 (menhir
  (modules parser)
- (flags "--explain" "--dump" "--strict")
+ (flags "--explain" "--dump" "--strict" "--external-tokens" "Tokens")
  (infer true))
 
 (ocamllex
