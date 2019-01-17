@@ -1,4 +1,4 @@
 (executable
  (name main)
  (public_name nixformat)
- (libraries nix))
+ (libraries nix pprint))
