@@ -2,7 +2,7 @@ module PrettyPrinter : sig
   include Pprinter.PPRINTER
   val set_width: int -> unit
   val set_indent: int -> unit
-end  = struct
+end = struct
   open Nix.Ast
   open PPrintEngine
   open PPrintCombinators
@@ -15,19 +15,22 @@ end  = struct
 
   let rec doc_of_expr = function
     | BinaryOp(op, lhs, rhs) ->
-      infix !indent 1 (doc_of_bop op) (doc_of_expr lhs) (doc_of_expr rhs)
+      let lvl = prec_of_bop op in
+      let lhs_doc = maybe_parens lvl lhs in
+      let rhs_doc = maybe_parens lvl rhs in
+      (* TODO: don't use parens if it's a chain of ops, e.g. 1+1+1 *)
+      infix !indent 1 (doc_of_bop op) lhs_doc rhs_doc
 
     | UnaryOp(op, e) ->
-      precede (doc_of_uop op) (doc_of_expr e)
+      precede (doc_of_uop op) (maybe_parens (prec_of_uop op) e)
 
     | Cond(e1, e2, e3) ->
-      flow (break 1) [
-        string "if";
-        doc_of_expr e1 ^^ break 1 ^^ string "then";
-        nest !indent (doc_of_expr e2);
-        string "else";
-        nest !indent (doc_of_expr e3)
-      ]
+      surround !indent 1
+        (soft_surround !indent 1
+           (string "if") (doc_of_expr e1) (string "then"))
+        (doc_of_expr e2)
+        (string "else" ^^
+         (nest !indent (break 1 ^^ doc_of_expr e3)))
 
     | With(e1, e2) ->
       flow (break 1) [
@@ -44,16 +47,14 @@ end  = struct
       ]
 
     | Test(e, path) ->
-        doc_of_expr e ^^ string "?" ^^
+        maybe_parens 4 e ^^ string "?" ^^
         group (break 1 ^^ separate_map dot doc_of_expr path)
 
     | Let(bs, e) ->
-      flow (break 1) [
-        prefix !indent 1
-          (string "let")
-          (flow (break 1) (List.map doc_of_binding bs));
-        prefix !indent 1 (string "in") (doc_of_expr e)
-      ]
+      surround !indent 1
+        (string "let")
+        (separate_map (break 1) doc_of_binding bs)
+        (prefix !indent 1 (string "in") (doc_of_expr e))
 
     | Val v ->
       doc_of_val v
@@ -62,38 +63,52 @@ end  = struct
       string id
 
     | Select(e, path, oe) ->
-      maybe_parens e ^^
-      dot ^^
-      separate_map dot doc_of_expr path ^^
+      maybe_parens 1 e ^^ dot ^^
+      doc_of_attpath path ^^
       optional (fun e ->
-          flow (break 1) [ string "or"; doc_of_expr e]
+          space ^^ string "or" ^^
+          nest !indent ( break 1 ^^ maybe_parens 1 e)
         ) oe
 
     | Apply(e1, e2) ->
-      maybe_parens e1 ^^ break 1 ^^ maybe_parens e2
+      prefix !indent 1 (maybe_parens 2 e1) (maybe_parens 2 e2)
 
     | Aquote e ->
-      string "${" ^^ group (
-        break 1 ^^
-        nest !indent (group (doc_of_expr e)) ^^
-        break 1
-      ) ^^ string "}"
+      surround !indent 0 (string "${") (doc_of_expr e) (string "}")
 
-  and maybe_parens = function
-    | e -> doc_of_expr e
+  and maybe_parens lvl e =
+    if prec_of_expr e >= lvl then
+      surround !indent 0 lparen (doc_of_expr e) rparen
+    else
+      doc_of_expr e
+
+  and doc_of_attpath path =
+    separate_map dot doc_of_expr path
+
+  and doc_of_paramset(params, ellipsis) =
+    let ps = List.map doc_of_param params @ match ellipsis with
+      | Some _ -> [string "..."]
+      | None -> []
+    in
+    surround !indent 0
+      lbrace
+      (separate (comma ^^ break 1) ps)
+      rbrace
+
+  and doc_of_param(id, oe) =
+    string id ^^ optional (fun e ->
+        group (break 1 ^^ qmark ^^ break 1 ^^ doc_of_expr e)
+      ) oe
 
   and doc_of_binding = function
-    | AttrPath(es, e) ->
-      flow (break 1) [
-        separate_map dot doc_of_expr es;
-        equals;
-        doc_of_expr e ^^ semi
-      ]
+    | AttrPath(path, e) ->
+      infix !indent 1 equals (doc_of_attpath path) (doc_of_expr e ^^ semi)
+
     | Inherit(oe, ids) ->
-      flow (break 1) [
-        optional (fun e -> parens (doc_of_expr e) ) oe;
-        separate_map dot string ids
-      ]
+      string "inherit" ^^ space ^^
+      optional (fun e -> parens (doc_of_expr e) ) oe ^^
+      (nest !indent
+         (break 1 ^^ flow (break 1) (List.map string ids) ^^ semi))
 
   and doc_of_bop = function
     | Plus -> plus
@@ -104,7 +119,7 @@ end  = struct
     | Lt -> langle
     | Lte -> string "<="
     | Gte -> string ">="
-    | Eq -> equals
+    | Eq -> string "=="
     | Neq -> string "!="
     | Or -> string "||"
     | And -> string "&&"
@@ -121,39 +136,76 @@ end  = struct
       dquotes (
         string start ^^
         concat (List.map (fun (e, s) ->
-            string "${" ^^
-            group (break 1 ^^ doc_of_expr e) ^^
-            break 1 ^^ string "}" ^^ string s
+            surround !indent 0
+              (string "${")
+              (doc_of_expr e)
+              (string "}" ^^ string s)
           ) xs ))
 
-    | IStr(_, _, _) ->
-      string "<indented>"
+    | IStr(i, start, xs) ->
+      let qq = string "''" in
+      let skip_first_line xs =
+        match xs with
+        | ws :: rest ->
+          if String.trim ws |> String.equal "" then rest else xs
+        | _ -> xs
+      in
+      let str skip s =
+        String.split_on_char '\n' s
+        |> (match skip with | `Start -> skip_first_line | `Mid -> (fun x -> x))
+        |> List.map (fun s ->
+            let len = String.length s in
+            let s' = if len >= i then String.sub s i (len - i) else s in
+            string s'
+          )
+        |> separate hardline
+      in
+      enclose (qq ^^ hardline) qq (
+        str `Start start ^^
+        concat (List.map (fun (e, s) ->
+            enclose (string "${") rbrace (doc_of_expr e) ^^
+            str `Mid s
+          ) xs ))
 
     | Int x | Float x | Path x | SPath x | HPath x | Uri x | Bool x ->
       string x
 
-    | Lambda(_, _) ->
-      string "<lambda>"
+    | Lambda(pattern, body) ->
+      let pat = match pattern with
+        | Alias id ->
+          string id
+        | ParamSet ps ->
+          doc_of_paramset ps
+        | AliasedSet(id, ps) ->
+          doc_of_paramset ps ^^
+          group (break 1 ^^ at ^^ break 1 ^^ string id)
+      in
+      group (pat ^^ colon ^^ space ^^ doc_of_expr body)
 
     | List es ->
-      brackets (separate_map (break 1) doc_of_expr es)
+      surround !indent 1
+        lbracket
+        (separate_map (break 1) doc_of_expr es)
+        rbracket
 
     | AttSet bs ->
-      lbrace ^^ nest !indent (
-        flow (break 1) (List.map doc_of_binding bs);
-      ) ^^ rbrace
+      surround !indent 1
+        lbrace
+        (group (separate_map (break 1) doc_of_binding bs))
+        rbrace
 
     | RecAttSet bs ->
-      string "rec" ^^ space ^^ lbrace ^^ nest !indent (
-        flow (break 1) (List.map doc_of_binding bs);
-      ) ^^ rbrace
+      string "rec" ^^ space ^^ surround !indent 1
+        lbrace
+        (group (separate_map (break 1) doc_of_binding bs))
+        rbrace
 
     | Null ->
       string "null"
 
-  let print chan = function
-    | expr ->
-      ToChannel.pretty 0.7 !out_width chan (doc_of_expr expr)
+  let print chan expr =
+    ToChannel.pretty 0.7 !out_width chan (doc_of_expr expr)
+
 end
 
 include PrettyPrinter
