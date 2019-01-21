@@ -97,18 +97,24 @@ end = struct
 
   and doc_of_param(id, oe) =
     string id ^^ optional (fun e ->
-        group (break 1 ^^ qmark ^^ break 1 ^^ doc_of_expr e)
+        qmark ^^ space ^^ doc_of_expr e
       ) oe
 
   and doc_of_binding = function
     | AttrPath(path, e) ->
-      infix !indent 1 equals (doc_of_attpath path) (doc_of_expr e ^^ semi)
+      (doc_of_attpath path) ^^
+      space ^^ equals ^^ space ^^
+      doc_of_expr e ^^ semi
 
     | Inherit(oe, ids) ->
-      string "inherit" ^^ space ^^
-      optional (fun e -> parens (doc_of_expr e) ) oe ^^
-      (nest !indent
-         (break 1 ^^ flow (break 1) (List.map string ids) ^^ semi))
+      let id_docs = List.map string ids in
+      let xs = flow (break 1) (
+          match oe with
+          | Some e -> (parens (doc_of_expr e)) :: id_docs
+          | None -> id_docs
+        )
+      in
+      soft_surround !indent 0 (string "inherit" ^^ space) xs semi
 
   and doc_of_bop = function
     | Plus -> plus
@@ -180,7 +186,10 @@ end = struct
           doc_of_paramset ps ^^
           group (break 1 ^^ at ^^ break 1 ^^ string id)
       in
-      group (pat ^^ colon ^^ space ^^ doc_of_expr body)
+      flow (break 1) [
+        pat ^^ colon;
+        doc_of_expr body
+      ]
 
     | List es ->
       surround !indent 1
