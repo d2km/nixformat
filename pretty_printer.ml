@@ -150,15 +150,8 @@ end = struct
 
     | IStr(i, start, xs) ->
       let qq = string "''" in
-      let skip_first_line xs =
-        match xs with
-        | ws :: rest ->
-          if String.trim ws |> String.equal "" then rest else xs
-        | _ -> xs
-      in
-      let str skip s =
+      let str s =
         String.split_on_char '\n' s
-        |> (match skip with | `Start -> skip_first_line | `Mid -> (fun x -> x))
         |> List.map (fun s ->
             let len = String.length s in
             let s' = if len >= i then String.sub s i (len - i) else s in
@@ -166,11 +159,10 @@ end = struct
           )
         |> separate hardline
       in
-      enclose (qq ^^ hardline) qq (
-        str `Start start ^^
+      enclose qq qq (
+        str start ^^
         concat (List.map (fun (e, s) ->
-            enclose (string "${") rbrace (doc_of_expr e) ^^
-            str `Mid s
+            enclose (string "${") rbrace (doc_of_expr e) ^^ str s
           ) xs ))
 
     | Int x | Float x | Path x | SPath x | HPath x | Uri x | Bool x ->
