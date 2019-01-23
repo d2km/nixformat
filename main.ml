@@ -1,5 +1,3 @@
-open Nix
-
 let file_names = ref ([]: string list)
 let out = ref stdout
 
@@ -12,18 +10,12 @@ let main () =
   files
   |> List.rev
   |> List.iter (fun (file, name) ->
-      let lexbuf = Lexer.set_filename name (Lexing.from_channel file) in
-      let q, s = Queue.create (), ref [] in
       try
-        lexbuf
-        |> Parser.main (Lexer.next_token q s)
-        |> Pretty_printer.print !out;
+        Nix.parse file name |> Pretty_printer.print !out;
         output_char !out '\n'
       with
-      | Lexer.Error msg ->
-        Printf.eprintf "lexing error: %s\n" msg
-      | Parser.Error ->
-        Printf.eprintf "parse error at: %s\n" (Lexer.print_position lexbuf)
+      | Nix.ParseError msg ->
+        Printf.eprintf "%s" msg
     )
 
 let () = main ()
