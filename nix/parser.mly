@@ -16,8 +16,8 @@
 %token <string> ISTR_MID
 %token <int> ISTR_END
 %token <string> ID
-/* %token <string> SCOMMENT */
-/* %token <string> MCOMMENT */
+%token <string> SCOMMENT
+%token <string> MCOMMENT
 /* Tokens that stand for themselves */
 %token SELECT "."
 %token QMARK "?"

@@ -23,13 +23,13 @@ let print_stack s =
 
 let token_of_str state buf =
   match state with
-        | `Start -> STR_START (Buffer.contents buf)
-        | `Mid -> STR_MID (Buffer.contents buf)
+  | `Start -> STR_START (Buffer.contents buf)
+  | `Mid -> STR_MID (Buffer.contents buf)
 
 let token_of_istr state buf =
   match state with
-        | `Start -> ISTR_START (Buffer.contents buf)
-        | `Mid -> ISTR_MID (Buffer.contents buf)
+  | `Start -> ISTR_START (Buffer.contents buf)
+  | `Mid -> ISTR_MID (Buffer.contents buf)
 
 (* lookup table for one-character tokens *)
 let char_table = Array.make 93 EOF
@@ -185,12 +185,9 @@ rule get_tokens q s = parse
     { Queue.add (try Hashtbl.find keyword_table id with Not_found -> ID id) q}
 (* comments *)
 | '#' ([^ '\n']* as c)
-    { (* Queue.add (SCOMMENT c) q *) ignore c; get_tokens q s lexbuf}
+    { Queue.add (SCOMMENT c) q }
 | "/*"
-    { (* Queue.add (comment (Buffer.create 64) lexbuf) q *)
-      comment (Buffer.create 64) lexbuf;
-      get_tokens q s lexbuf
-    }
+    { Queue.add (comment (Buffer.create 64) lexbuf) q }
 (* the following three tokens change the braces stack *)
 | "${"
     { Queue.add AQUOTE_OPEN q; s := AQUOTE :: !s }
@@ -241,7 +238,7 @@ and comment buf = parse
   | '\n'
     {Lexing.new_line lexbuf; Buffer.add_char buf '\n'; comment buf lexbuf}
   | "*/"
-    { (* MCOMMENT (Buffer.contents buf) *) ()}
+    { MCOMMENT (Buffer.contents buf)}
   | _ as c
     { Buffer.add_char buf c; comment buf lexbuf }
 

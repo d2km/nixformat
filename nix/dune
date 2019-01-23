@@ -1,9 +1,13 @@
 (library
- (name nix))
+ (name nix)
+ (libraries menhirLib))
 
 (menhir
  (modules parser)
- (flags "--explain" "--dump" "--strict" "--external-tokens" "Tokens")
+ (flags "--explain" "--dump" "--strict" "--table"
+        "--external-tokens" "Tokens"
+        "--unused-token" "SCOMMENT"
+        "--unused-token" "MCOMMENT")
  (infer true))
 
 (ocamllex

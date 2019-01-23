@@ -17,8 +17,8 @@ type token =
   |  ISTR_MID of string
   |  ISTR_END of int
   |  ID of string
-  (* |  <string> SCOMMENT *)
-  (* |  <string> MCOMMENT *)
+  |  SCOMMENT of string
+  |  MCOMMENT of string
   (* Tokens that stand for themselves *)
   |  SELECT
   |  QMARK
