@@ -41,7 +41,7 @@ let add_token s tok' =
   s.comments <- []
 
 (* lookup table for one-character tokens *)
-let char_table: token' array = Array.make 93 EOF'
+let char_table: unit token' array = Array.make 93 EOF'
 let _ =
   List.iter (fun (k, v) -> Array.set char_table ((int_of_char k) - 1) v)
     [
@@ -181,8 +181,8 @@ rule get_tokens s = parse
       (
         match s.this_line_token with
         | Some tok ->
-          let {comments; value = _} as x = get_payload tok in
-          x.comments.after <- s.comments @ comments.after;
+          let cs = get_comments tok in
+          cs.after <- s.comments @ cs.after;
           s.comments <- [];
           s.this_line_token <- None;
         | None -> ()
@@ -210,9 +210,10 @@ rule get_tokens s = parse
 (* keywords or identifies *)
 | ((alpha | '_')+ (alpha_digit | ['_' '\'' '-'])*) as id
     {
-      add_token s (
-        try Hashtbl.find keyword_table id with Not_found -> ID' id
-      );
+      try
+        add_token s (Hashtbl.find keyword_table id)
+      with
+        Not_found -> add_token s (ID' id)
     }
 (* comments *)
 | '#' ([^ '\n']* as c)

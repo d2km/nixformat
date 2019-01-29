@@ -15,176 +15,240 @@ type comments = {
 }
 
 (* value type of tokens that have a value *)
-type token_value =
-  | Str of string
-  | Int of int
-  | Empty
+type _ token_value =
+  | Str: string -> string token_value
+  | Int: int -> int token_value
+  | Empty: unit token_value
 
-type token_payload = {
-  value: token_value;
+type 'a token_payload = {
+  value: 'a token_value;
   comments: comments
 }
 
-type token' =
-  |  INT' of string
-  |  FLOAT' of string
-  |  PATH' of string
-  |  SPATH' of string
-  |  HPATH' of string
-  |  URI' of string
-  |  BOOL' of string
-  |  STR_START' of string
-  |  STR_MID' of string
-  |  STR_END'
-  |  ISTR_START' of string
-  |  ISTR_MID' of string
-  |  ISTR_END' of int
-  |  ID' of string
-  |  SELECT'
-  |  QMARK'
-  |  CONCAT'
-  |  NOT'
-  |  MERGE'
-  |  ASSIGN'
-  |  LT'
-  |  LTE'
-  |  GT'
-  |  GTE'
-  |  EQ'
-  |  NEQ'
-  |  AND'
-  |  OR'
-  |  IMPL'
-  |  AQUOTE_OPEN'
-  |  AQUOTE_CLOSE'
-  |  LBRACE'
-  |  RBRACE'
-  |  LBRACK'
-  |  RBRACK'
-  |  PLUS'
-  |  MINUS'
-  |  TIMES'
-  |  SLASH'
-  |  LPAREN'
-  |  RPAREN'
-  |  COLON'
-  |  SEMICOLON'
-  |  COMMA'
-  |  ELLIPSIS'
-  |  AS'
-  |  WITH'
-  |  REC'
-  |  LET'
-  |  IN'
-  |  INHERIT'
-  |  NULL'
-  |  IF'
-  |  THEN'
-  |  ELSE'
-  |  ASSERT'
-  |  ORDEF'
-  |  EMPTY_CURLY'
-  |  EOF'
+type _ token' =
+  |  INT': string -> string token'
+  |  FLOAT': string -> string token'
+  |  PATH': string -> string token'
+  |  SPATH': string -> string token'
+  |  HPATH': string -> string token'
+  |  URI': string -> string token'
+  |  BOOL': string -> string token'
+  |  STR_START': string -> string token'
+  |  STR_MID': string -> string token'
+  |  STR_END': unit token'
+  |  ISTR_START': string -> string token'
+  |  ISTR_MID': string -> string token'
+  |  ISTR_END': int -> int token'
+  |  ID': string -> string token'
+  |  SELECT': unit token'
+  |  QMARK': unit token'
+  |  CONCAT': unit token'
+  |  NOT': unit token'
+  |  MERGE': unit token'
+  |  ASSIGN': unit token'
+  |  LT': unit token'
+  |  LTE': unit token'
+  |  GT': unit token'
+  |  GTE': unit token'
+  |  EQ': unit token'
+  |  NEQ': unit token'
+  |  AND': unit token'
+  |  OR': unit token'
+  |  IMPL': unit token'
+  |  AQUOTE_OPEN': unit token'
+  |  AQUOTE_CLOSE': unit token'
+  |  LBRACE': unit token'
+  |  RBRACE': unit token'
+  |  LBRACK': unit token'
+  |  RBRACK': unit token'
+  |  PLUS': unit token'
+  |  MINUS': unit token'
+  |  TIMES': unit token'
+  |  SLASH': unit token'
+  |  LPAREN': unit token'
+  |  RPAREN': unit token'
+  |  COLON': unit token'
+  |  SEMICOLON': unit token'
+  |  COMMA': unit token'
+  |  ELLIPSIS': unit token'
+  |  AS': unit token'
+  |  WITH': unit token'
+  |  REC': unit token'
+  |  LET': unit token'
+  |  IN': unit token'
+  |  INHERIT': unit token'
+  |  NULL': unit token'
+  |  IF': unit token'
+  |  THEN': unit token'
+  |  ELSE': unit token'
+  |  ASSERT': unit token'
+  |  ORDEF': unit token'
+  |  EMPTY_CURLY': unit token'
+  |  EOF': unit token'
 
 
 type token =
   (* Tokens with data *)
-  |  INT of token_payload
-  |  FLOAT of token_payload
+  |  INT of string token_payload
+  |  FLOAT of string token_payload
   (* a path *)
-  |  PATH of token_payload
+  |  PATH of string token_payload
   (* search path, enclosed in <> *)
-  |  SPATH of token_payload
+  |  SPATH of string token_payload
   (* home path, starts with ~ *)
-  |  HPATH of token_payload
-  |  URI of token_payload
-  |  BOOL of token_payload
-  |  STR_START of token_payload
-  |  STR_MID of token_payload
-  |  STR_END of token_payload
-  |  ISTR_START of token_payload
-  |  ISTR_MID of token_payload
-  |  ISTR_END of token_payload
-  |  ID of token_payload
+  |  HPATH of string token_payload
+  |  URI of string token_payload
+  |  BOOL of string token_payload
+  |  STR_START of string token_payload
+  |  STR_MID of string token_payload
+  |  STR_END of unit token_payload
+  |  ISTR_START of string token_payload
+  |  ISTR_MID of string token_payload
+  |  ISTR_END of int token_payload
+  |  ID of string token_payload
   (* Tokens that stand for themselves *)
-  |  SELECT of token_payload
-  |  QMARK of token_payload
-  |  CONCAT of token_payload
-  |  NOT of token_payload
-  |  MERGE of token_payload
-  |  ASSIGN of token_payload
-  |  LT of token_payload
-  |  LTE of token_payload
-  |  GT of token_payload
-  |  GTE of token_payload
-  |  EQ of token_payload
-  |  NEQ of token_payload
-  |  AND of token_payload
-  |  OR of token_payload
-  |  IMPL of token_payload
-  |  AQUOTE_OPEN of token_payload
-  |  AQUOTE_CLOSE of token_payload
-  |  LBRACE of token_payload
-  |  RBRACE of token_payload
-  |  LBRACK of token_payload
-  |  RBRACK of token_payload
-  |  PLUS of token_payload
-  |  MINUS of token_payload
-  |  TIMES of token_payload
-  |  SLASH of token_payload
-  |  LPAREN of token_payload
-  |  RPAREN of token_payload
-  |  COLON of token_payload
-  |  SEMICOLON of token_payload
-  |  COMMA of token_payload
-  |  ELLIPSIS of token_payload
-  |  AS of token_payload
+  |  SELECT of unit token_payload
+  |  QMARK of unit token_payload
+  |  CONCAT of unit token_payload
+  |  NOT of unit token_payload
+  |  MERGE of unit token_payload
+  |  ASSIGN of unit token_payload
+  |  LT of unit token_payload
+  |  LTE of unit token_payload
+  |  GT of unit token_payload
+  |  GTE of unit token_payload
+  |  EQ of unit token_payload
+  |  NEQ of unit token_payload
+  |  AND of unit token_payload
+  |  OR of unit token_payload
+  |  IMPL of unit token_payload
+  |  AQUOTE_OPEN of unit token_payload
+  |  AQUOTE_CLOSE of unit token_payload
+  |  LBRACE of unit token_payload
+  |  RBRACE of unit token_payload
+  |  LBRACK of unit token_payload
+  |  RBRACK of unit token_payload
+  |  PLUS of unit token_payload
+  |  MINUS of unit token_payload
+  |  TIMES of unit token_payload
+  |  SLASH of unit token_payload
+  |  LPAREN of unit token_payload
+  |  RPAREN of unit token_payload
+  |  COLON of unit token_payload
+  |  SEMICOLON of unit token_payload
+  |  COMMA of unit token_payload
+  |  ELLIPSIS of unit token_payload
+  |  AS of unit token_payload
   (* Keywords *)
-  |  WITH of token_payload
-  |  REC of token_payload
-  |  LET of token_payload
-  |  IN of token_payload
-  |  INHERIT of token_payload
-  |  NULL of token_payload
-  |  IF of token_payload
-  |  THEN of token_payload
-  |  ELSE of token_payload
-  |  ASSERT of token_payload
-  |  ORDEF of token_payload
+  |  WITH of unit token_payload
+  |  REC of unit token_payload
+  |  LET of unit token_payload
+  |  IN of unit token_payload
+  |  INHERIT of unit token_payload
+  |  NULL of unit token_payload
+  |  IF of unit token_payload
+  |  THEN of unit token_payload
+  |  ELSE of unit token_payload
+  |  ASSERT of unit token_payload
+  |  ORDEF of unit token_payload
   (* A special token to denote {} *)
-  |  EMPTY_CURLY of token_payload
+  |  EMPTY_CURLY of unit token_payload
   (* end of input *)
-  |  EOF of token_payload
+  |  EOF of unit token_payload
 
 
-let empty_payload ?(before = []) ?(after = []) () =
+let empty_payload ?(before = []) ?(after = []) () : unit token_payload =
   {value = Empty; comments = {before; after}}
-let str_payload ?(before = []) ?(after = []) s =
+let str_payload ?(before = []) ?(after = []) s : string token_payload =
   {value = Str s; comments = {before; after}}
-let int_payload ?(before = []) ?(after = []) i =
+let int_payload ?(before = []) ?(after = []) i : int token_payload =
   {value = Int i; comments = {before; after}}
 
-(* quite ugly code, not sure how to make it any better
-   Ideally I'd just have | _ v -> v pattern but it doesn't compile
-*)
-let get_payload = function
-  |  INT v |  FLOAT v |  PATH v |  SPATH v |  HPATH v
-  |  URI v |  BOOL v |  STR_START v |  STR_MID v |  STR_END v
-  |  ISTR_START v |  ISTR_MID v |  ISTR_END v |  ID v
-  |  SELECT v |  QMARK v |  CONCAT v |  NOT v |  MERGE v
-  |  ASSIGN v |  LT v |  LTE v |  GT v |  GTE v |  EQ v
-  |  NEQ v |  AND v |  OR v |  IMPL v |  AQUOTE_OPEN v
-  |  AQUOTE_CLOSE v |  LBRACE v |  RBRACE v |  LBRACK v
-  |  RBRACK v |  PLUS v |  MINUS v |  TIMES v |  SLASH v
-  |  LPAREN v |  RPAREN v |  COLON v |  SEMICOLON v |  COMMA v
-  |  ELLIPSIS v |  AS v |  WITH v |  REC v |  LET v |  IN v
-  |  INHERIT v |  NULL v |  IF v |  THEN v |  ELSE v |  ASSERT v
-  |  ORDEF v |  EMPTY_CURLY v |  EOF v ->
-    v
+(* quite ugly code, not sure how to make it any better *)
+let get_comments (tok: token) = match tok with
+  |  INT {value = _; comments=cs}
+  |  FLOAT {value = _; comments = cs}
+  |  PATH {value = _; comments = cs}
+  |  SPATH {value = _; comments = cs}
+  |  HPATH {value = _; comments = cs}
+  |  URI {value = _; comments = cs}
+  |  BOOL {value = _; comments = cs}
+  |  STR_START {value = _; comments = cs}
+  |  STR_MID {value = _; comments = cs}
+  |  ID {value = _; comments = cs}
+  |  ISTR_START {value = _; comments = cs}
+  |  ISTR_MID {value = _; comments = cs}
+  |  ISTR_END {value = _; comments = cs}
+  |  STR_END {value = _; comments = cs}
+  |  SELECT {value = _; comments = cs}
+  |  QMARK {value = _; comments = cs}
+  |  CONCAT {value = _; comments = cs}
+  |  NOT {value = _; comments = cs}
+  |  MERGE {value = _; comments = cs}
+  |  ASSIGN {value = _; comments = cs}
+  |  LT {value = _; comments = cs}
+  |  LTE {value = _; comments = cs}
+  |  GT {value = _; comments = cs}
+  |  GTE {value = _; comments = cs}
+  |  EQ {value = _; comments = cs}
+  |  NEQ {value = _; comments = cs}
+  |  AND {value = _; comments = cs}
+  |  OR {value = _; comments = cs}
+  |  IMPL {value = _; comments = cs}
+  |  AQUOTE_OPEN {value = _; comments = cs}
+  |  AQUOTE_CLOSE {value = _; comments = cs}
+  |  LBRACE {value = _; comments = cs}
+  |  RBRACE {value = _; comments = cs}
+  |  LBRACK {value = _; comments = cs}
+  |  RBRACK {value = _; comments = cs}
+  |  PLUS {value = _; comments = cs}
+  |  MINUS {value = _; comments = cs}
+  |  TIMES {value = _; comments = cs}
+  |  SLASH {value = _; comments = cs}
+  |  LPAREN {value = _; comments = cs}
+  |  RPAREN {value = _; comments = cs}
+  |  COLON {value = _; comments = cs}
+  |  SEMICOLON {value = _; comments = cs}
+  |  COMMA {value = _; comments = cs}
+  |  ELLIPSIS {value = _; comments = cs}
+  |  AS {value = _; comments = cs}
+  |  WITH {value = _; comments = cs}
+  |  REC {value = _; comments = cs}
+  |  LET {value = _; comments = cs}
+  |  IN {value = _; comments = cs}
+  |  INHERIT {value = _; comments = cs}
+  |  NULL {value = _; comments = cs}
+  |  IF {value = _; comments = cs}
+  |  THEN {value = _; comments = cs}
+  |  ELSE {value = _; comments = cs}
+  |  ASSERT {value = _; comments = cs}
+  |  ORDEF {value = _; comments = cs}
+  |  EMPTY_CURLY {value = _; comments = cs}
+  |  EOF {value = _; comments = cs} ->
+    cs
 
+
+let get_str_val (tok: token) : string = match tok with
+  |  INT {value = (Str s); comments = _}
+  |  FLOAT {value = (Str s); comments = _}
+  |  PATH {value = (Str s); comments = _}
+  |  SPATH {value = (Str s); comments = _}
+  |  HPATH {value = (Str s); comments = _}
+  |  URI {value = (Str s); comments = _}
+  |  BOOL {value = (Str s); comments = _}
+  |  STR_START {value = (Str s); comments = _}
+  |  STR_MID {value = (Str s); comments = _}
+  |  ID {value = (Str s); comments = _}
+  |  ISTR_START {value = (Str s); comments = _}
+  |  ISTR_MID {value = (Str s); comments = _} -> s
+  |  _ -> failwith "blast"
+
+let get_int_val (tok: token) : int = match tok with
+  |  ISTR_END {value = (Int i); comments = _} -> i
+  |  _ -> failwith "blast"
 
 (* an auxiliary function to create tokens *)
-let create ?(before = []) ?(after = []) (tok: token') = match tok with
+let create (type t) ?(before = []) ?(after = []) (tok: t token') = match tok with
   |  INT' v -> INT (str_payload ~before ~after v)
   |  FLOAT' v -> FLOAT (str_payload ~before ~after v)
   |  PATH' v -> PATH (str_payload ~before ~after v)
