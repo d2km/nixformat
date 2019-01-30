@@ -217,11 +217,11 @@ rule get_tokens s = parse
     }
 (* comments *)
 | '#' ([^ '\n']* as c)
-    { s.comments <- (Comments.SingleLine c) :: s.comments }
+    { s.comments <- (Comments.SingleLine c) :: s.comments; get_tokens s lexbuf }
 | "/*"
     {
       let c = Comments.Inline (comment (Buffer.create 64) lexbuf) in
-      s.comments <- c :: s.comments
+      s.comments <- c :: s.comments; get_tokens s lexbuf
     }
 (* the following three tokens change the braces stack *)
 | "${"
@@ -231,20 +231,20 @@ rule get_tokens s = parse
       add_token s LBRACE'; s.stack <- SET :: s.stack;
       (* some extra ceremony to allow empty parameter sets with comments *)
       get_tokens s lexbuf;
-
-      match Queue.peek s.queue with
-      | LBRACE {comments = cs; value = _} ->
-        ignore (Queue.take s.queue);
-        Queue.add (
-          Tokens.create
-            ~before:(cs.before @ s.comments)
-            ~after:cs.after
+      match Queue.take s.queue, Queue.take s.queue with
+      | LBRACE {comments = cs1; _}, RBRACE {comments = cs2; _} ->
+        let tok = Tokens.create
+            ~before:(cs1.before @ cs1.after @ cs2.before)
+            ~after:cs2.after
             EMPTY_CURLY'
-        ) s.queue;
-        s.comments <- []
-      | _ ->
-        add_token s RBRACE'
-
+        in
+        Queue.add tok s.queue;
+        s.this_line_token <- Some tok;
+      | t1, t2 ->
+        let q = Queue.create () in
+        Queue.add t1 q; Queue.add t2 q;
+        Queue.transfer s.queue q;
+        Queue.transfer q s.queue;
     }
 | '}'
     {
