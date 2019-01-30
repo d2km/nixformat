@@ -1,77 +1,67 @@
-/* Tokens with data */
-%token <string> INT
-%token <string> FLOAT
-/* a path */
-%token <string> PATH
-/* search path, enclosed in <> */
-%token <string> SPATH
-/* home path, starts with ~ */
-%token <string> HPATH
-%token <string> URI
-%token <string> BOOL
-%token <string> STR_START
-%token <string> STR_MID
-%token STR_END
-%token <string> ISTR_START
-%token <string> ISTR_MID
-%token <int> ISTR_END
-%token <string> ID
-/* %token <string> SCOMMENT */
-/* %token <string> MCOMMENT */
-/* Tokens that stand for themselves */
-%token SELECT "."
-%token QMARK "?"
-%token CONCAT "++"
-%token NOT "!"
-%token MERGE "//"
-%token ASSIGN "="
-%token LT "<"
-%token LTE "<="
-%token GT ">"
-%token GTE ">="
-%token EQ "=="
-%token NEQ "!="
-%token AND "&&"
-%token OR "||"
-%token IMPL "->"
-%token AQUOTE_OPEN "${"
-%token AQUOTE_CLOSE "}$"
-%token LBRACE "{"
-%token RBRACE "}"
-%token LBRACK "["
-%token RBRACK "]"
-%token PLUS "+"
-%token MINUS "-"
-%token TIMES "*"
-%token SLASH "/"
-%token LPAREN "("
-%token RPAREN ")"
-%token COLON ":"
-%token SEMICOLON ";"
-%token COMMA ","
-%token ELLIPSIS "..."
-%token AS "@"
-/* Keywords */
-%token WITH "with"
-%token REC "rec"
-%token LET "let"
-%token IN "in"
-%token INHERIT "inherit"
-%token NULL "null"
-%token IF "if"
-%token THEN "then"
-%token ELSE "else"
-%token ASSERT "assert"
-%token ORDEF "or"
-/* A special token to denote {} */
-%token EMPTY_CURLY "{}"
-
-/* end of input */
-%token EOF
-
 %{
   open Types
+  open Tokens
 %}
+
+/* Tokens with data */
+%token <string token_payload> INT FLOAT PATH SPATH HPATH URI BOOL ID
+/* Strings */
+%token <string token_payload> STR_START STR_MID
+%token <unit token_payload> STR_END
+/* Indented strings */
+%token <string token_payload> ISTR_START ISTR_MID
+%token <int token_payload> ISTR_END
+
+/* Tokens that stand for themselves */
+%token <unit token_payload> SELECT "."
+%token <unit token_payload> QMARK "?"
+%token <unit token_payload> CONCAT "++"
+%token <unit token_payload> NOT "!"
+%token <unit token_payload> MERGE "//"
+%token <unit token_payload> ASSIGN "="
+%token <unit token_payload> LT "<"
+%token <unit token_payload> LTE "<="
+%token <unit token_payload> GT ">"
+%token <unit token_payload> GTE ">="
+%token <unit token_payload> EQ "=="
+%token <unit token_payload> NEQ "!="
+%token <unit token_payload> AND "&&"
+%token <unit token_payload> OR "||"
+%token <unit token_payload> IMPL "->"
+%token <unit token_payload> AQUOTE_OPEN "${"
+%token <unit token_payload> AQUOTE_CLOSE "}$"
+%token <unit token_payload> LBRACE "{"
+%token <unit token_payload> RBRACE "}"
+%token <unit token_payload> LBRACK "["
+%token <unit token_payload> RBRACK "]"
+%token <unit token_payload> PLUS "+"
+%token <unit token_payload> MINUS "-"
+%token <unit token_payload> TIMES "*"
+%token <unit token_payload> SLASH "/"
+%token <unit token_payload> LPAREN "("
+%token <unit token_payload> RPAREN ")"
+%token <unit token_payload> COLON ":"
+%token <unit token_payload> SEMICOLON ";"
+%token <unit token_payload> COMMA ","
+%token <unit token_payload> ELLIPSIS "..."
+%token <unit token_payload> AS "@"
+/* Keywords */
+%token <unit token_payload> WITH "with"
+%token <unit token_payload> REC "rec"
+%token <unit token_payload> LET "let"
+%token <unit token_payload> IN "in"
+%token <unit token_payload> INHERIT "inherit"
+%token <unit token_payload> NULL "null"
+%token <unit token_payload> IF "if"
+%token <unit token_payload> THEN "then"
+%token <unit token_payload> ELSE "else"
+%token <unit token_payload> ASSERT "assert"
+%token <unit token_payload> ORDEF "or"
+/* A special token to denote {} */
+%token <unit token_payload> EMPTY_CURLY "{}"
+
+/* end of input */
+%token <unit token_payload> EOF
 
 %start <Types.expr> main
 
@@ -196,7 +186,7 @@ expr13:
 | s = set
     { Val s }
 | id = ID
-    { Id id }
+    { Id (value_of id) }
 | e = delimited("(", expr0, ")")
     { e }
 
@@ -208,7 +198,7 @@ expr14:
 
 atomic_expr:
 | id = ID
-    { Id id }
+    { Id (value_of id) }
 | v = value
     { Val v }
 | e = delimited("(", expr0, ")")
@@ -220,7 +210,7 @@ attr_path:
 
 attr_path_component:
 | id = ID
-    {Id id}
+    {Id (value_of id)}
 | e = delimited("${", expr0, "}$")
     { Aquote e }
 | s = str
@@ -232,19 +222,19 @@ value:
 | s = istr
     { s }
 | i = INT
-    {Int i}
+    {Int (value_of i)}
 | f = FLOAT
-    { Float f }
+    { Float (value_of f) }
 | p = PATH
-    { Path p }
+    { Path (value_of p) }
 | sp = SPATH
-    { SPath sp }
+    { SPath (value_of sp) }
 | hp = HPATH
-    { HPath hp }
+    { HPath (value_of hp) }
 | uri = URI
-    { Uri uri }
+    { Uri (value_of uri) }
 | b = BOOL
-    { Bool b }
+    { Bool (value_of b) }
 | "null"
     { Null }
 | l = nixlist
@@ -253,17 +243,18 @@ value:
     { s }
 
 %inline str_mid(X):
-xs = list(pair(delimited("${", expr0, "}$"), X)) { xs }
+xs = list(pair(delimited("${", expr0, "}$"), X))
+    { List.map (fun (e, v) -> (e, value_of v)) xs }
 
 /* double-quoted string */
 str:
 start = STR_START; mids = str_mid(STR_MID); STR_END
-    { Str(start, mids) }
+    { Str(value_of start, mids) }
 
 /* indented string */
 istr:
 start = ISTR_START; mids = str_mid(ISTR_MID); i = ISTR_END
-    { IStr(i, start, mids) }
+    { IStr(value_of i, value_of start, mids) }
 
 /* lists and sets */
 nixlist:
@@ -275,26 +266,26 @@ set:
     { AttSet [] }
 | "rec"; "{}"
     { RecAttSet [] }
-| xs = delimited("{", list(binding), "}")
+| xs = delimited("{", nonempty_list(binding), "}")
     { AttSet xs }
-| xs = preceded("rec", delimited("{", list(binding), "}"))
+| xs = preceded("rec", delimited("{", nonempty_list(binding), "}"))
     { RecAttSet xs }
 
 binding:
 | kv = terminated(separated_pair(attr_path, "=", expr0), ";")
     { let (k, v) = kv in AttrPath(k, v) }
 | xs = delimited("inherit", pair(option(delimited("(", expr0, ")")), list(ID)), ";")
-    { let (prefix, ids) = xs in Inherit(prefix, ids) }
+    { let (prefix, ids) = xs in Inherit(prefix, List.map value_of ids) }
 
 lambda:
 | id = ID; "@"; p = param_set; ":"; e = expr0
-    { Lambda(AliasedSet(id, p), e) }
+    { Lambda(AliasedSet(value_of id, p), e) }
 | p = param_set; "@"; id = ID; ":"; e = expr0
-    { Lambda(AliasedSet(id, p), e) }
+    { Lambda(AliasedSet(value_of id, p), e) }
 | p = param_set; ":"; e = expr0
     { Lambda(ParamSet p, e) }
 | id = ID; ":"; e = expr0
-    { Lambda(Alias id, e) }
+    { Lambda(Alias (value_of id), e) }
 
 
 %inline param_set:
@@ -313,4 +304,4 @@ params:
 
 param:
 p = pair(ID, option(preceded("?", expr0)))
-    { p }
+    { let (id, oe) = p in (value_of id, oe) }
