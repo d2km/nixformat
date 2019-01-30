@@ -25,6 +25,16 @@ type 'a token_payload = {
   comments: comments
 }
 
+let value_of (type t) (p: t token_payload): t =
+  match p with
+  | {value = Str s; _} -> s
+  | {value = Int i; _} -> i
+  | {value = Empty; _} -> ()
+
+let comments_of (p: 't token_payload): comments =
+  let {value = _ ; comments = cs} = p in cs
+
+(* an auxiliary type to easy token creation *)
 type _ token' =
   |  INT': string -> string token'
   |  FLOAT': string -> string token'
@@ -165,7 +175,7 @@ let int_payload ?(before = []) ?(after = []) i : int token_payload =
   {value = Int i; comments = {before; after}}
 
 (* quite ugly code, not sure how to make it any better *)
-let get_comments (tok: token) = match tok with
+let get_comments = function
   |  INT {value = _; comments=cs}
   |  FLOAT {value = _; comments = cs}
   |  PATH {value = _; comments = cs}
@@ -227,28 +237,95 @@ let get_comments (tok: token) = match tok with
   |  EOF {value = _; comments = cs} ->
     cs
 
+let print_payload (type t) (p: t token_payload) =
+  let dq s = "\"" ^ s ^ "\"" in
+  let v = match p with
+    | {value = Str s; _} -> "Str " ^ dq s
+    | {value = Int i; _} -> "Int " ^ string_of_int i
+    | {value = Empty; _} -> "Empty"
+  in
+  let cs = comments_of p in
+  let print_comments xs =
+    xs
+    |> List.rev
+    |> List.map (
+      function
+      | Comments.SingleLine s -> "SingleLine " ^ dq s
+      | Comments.Inline s -> "Inline " ^ dq s
+    )
+  in
+  let before = print_comments cs.before in
+  let after = print_comments cs.after in
+  let comms = " {before = [" ^ String.concat "; " before ^ "]; " ^
+              "after = [" ^ String.concat "; " after ^ "]}"
+  in
+  " {value = " ^ v ^ "; comments = " ^ comms ^ "} "
 
-let get_str_val (tok: token) : string = match tok with
-  |  INT {value = (Str s); comments = _}
-  |  FLOAT {value = (Str s); comments = _}
-  |  PATH {value = (Str s); comments = _}
-  |  SPATH {value = (Str s); comments = _}
-  |  HPATH {value = (Str s); comments = _}
-  |  URI {value = (Str s); comments = _}
-  |  BOOL {value = (Str s); comments = _}
-  |  STR_START {value = (Str s); comments = _}
-  |  STR_MID {value = (Str s); comments = _}
-  |  ID {value = (Str s); comments = _}
-  |  ISTR_START {value = (Str s); comments = _}
-  |  ISTR_MID {value = (Str s); comments = _} -> s
-  |  _ -> failwith "blast"
+let print_token = function
+  |  INT v -> "INT" ^ print_payload v
+  |  FLOAT v -> "FLOAT" ^ print_payload v
+  |  PATH v -> "PATH" ^ print_payload v
+  |  SPATH v -> "SPATH" ^ print_payload v
+  |  HPATH v -> "HPATH" ^ print_payload v
+  |  URI v -> "URI" ^ print_payload v
+  |  BOOL v -> "BOOL" ^ print_payload v
+  |  STR_START v -> "STR_START" ^ print_payload v
+  |  STR_MID v -> "STR_MID" ^ print_payload v
+  |  ID v -> "ID" ^ print_payload v
+  |  ISTR_START v -> "ISTR_START" ^ print_payload v
+  |  ISTR_MID v -> "ISTR_MID" ^ print_payload v
+  |  ISTR_END v -> "ISTR_END" ^ print_payload v
+  |  STR_END v -> "STR_END" ^ print_payload v
+  |  SELECT v -> "SELECT" ^ print_payload v
+  |  QMARK v -> "QMARK" ^ print_payload v
+  |  CONCAT v -> "CONCAT" ^ print_payload v
+  |  NOT v -> "NOT" ^ print_payload v
+  |  MERGE v -> "MERGE" ^ print_payload v
+  |  ASSIGN v -> "ASSIGN" ^ print_payload v
+  |  LT v -> "LT" ^ print_payload v
+  |  LTE v -> "LTE" ^ print_payload v
+  |  GT v -> "GT" ^ print_payload v
+  |  GTE v -> "GTE" ^ print_payload v
+  |  EQ v -> "EQ" ^ print_payload v
+  |  NEQ v -> "NEQ" ^ print_payload v
+  |  AND v -> "AND" ^ print_payload v
+  |  OR v -> "OR" ^ print_payload v
+  |  IMPL v -> "IMPL" ^ print_payload v
+  |  AQUOTE_OPEN v -> "AQUOTE_OPEN" ^ print_payload v
+  |  AQUOTE_CLOSE v -> "AQUOTE_CLOSE" ^ print_payload v
+  |  LBRACE v -> "LBRACE" ^ print_payload v
+  |  RBRACE v -> "RBRACE" ^ print_payload v
+  |  LBRACK v -> "LBRACK" ^ print_payload v
+  |  RBRACK v -> "RBRACK" ^ print_payload v
+  |  PLUS v -> "PLUS" ^ print_payload v
+  |  MINUS v -> "MINUS" ^ print_payload v
+  |  TIMES v -> "TIMES" ^ print_payload v
+  |  SLASH v -> "SLASH" ^ print_payload v
+  |  LPAREN v -> "LPAREN" ^ print_payload v
+  |  RPAREN v -> "RPAREN" ^ print_payload v
+  |  COLON v -> "COLON" ^ print_payload v
+  |  SEMICOLON v -> "SEMICOLON" ^ print_payload v
+  |  COMMA v -> "COMMA" ^ print_payload v
+  |  ELLIPSIS v -> "ELLIPSIS" ^ print_payload v
+  |  AS v -> "AS" ^ print_payload v
+  |  WITH v -> "WITH" ^ print_payload v
+  |  REC v -> "REC" ^ print_payload v
+  |  LET v -> "LET" ^ print_payload v
+  |  IN v -> "IN" ^ print_payload v
+  |  INHERIT v -> "INHERIT" ^ print_payload v
+  |  NULL v -> "NULL" ^ print_payload v
+  |  IF v -> "IF" ^ print_payload v
+  |  THEN v -> "THEN" ^ print_payload v
+  |  ELSE v -> "ELSE" ^ print_payload v
+  |  ASSERT v -> "ASSERT" ^ print_payload v
+  |  ORDEF v -> "ORDEF" ^ print_payload v
+  |  EMPTY_CURLY v -> "EMPTY_CURLY" ^ print_payload v
+  |  EOF v -> "EOF" ^ print_payload v
 
-let get_int_val (tok: token) : int = match tok with
-  |  ISTR_END {value = (Int i); comments = _} -> i
-  |  _ -> failwith "blast"
 
-(* an auxiliary function to create tokens *)
-let create (type t) ?(before = []) ?(after = []) (tok: t token') = match tok with
+(* an auxiliary function to create tokens from token' *)
+let create (type t) ?(before = []) ?(after = []) (tok: t token') =
+  match tok with
   |  INT' v -> INT (str_payload ~before ~after v)
   |  FLOAT' v -> FLOAT (str_payload ~before ~after v)
   |  PATH' v -> PATH (str_payload ~before ~after v)
