@@ -115,7 +115,7 @@ let collect_tokens lexer s lexbuf =
     match (try Some (Queue.take s'.q) with Queue.Empty -> None) with
     | Some token ->
       (
-        match token, s.bs with
+        match token, s'.bs with
         | AQUOTE_CLOSE, [] ->
           Queue.add AQUOTE_CLOSE s.q
         | (EOF cs), _ ->
