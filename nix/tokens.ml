@@ -17,8 +17,6 @@ type token =
   |  ISTR_MID of string
   |  ISTR_END of int
   |  ID of string
-  (* |  <string> SCOMMENT *)
-  (* |  <string> MCOMMENT *)
   (* Tokens that stand for themselves *)
   |  SELECT
   |  QMARK
@@ -67,4 +65,4 @@ type token =
   (* A special token to denote {} *)
   |  EMPTY_CURLY
   (* end of input *)
-  |  EOF
+  |  EOF of Comments.t Queue.t

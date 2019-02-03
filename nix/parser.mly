@@ -67,7 +67,7 @@
 %token EMPTY_CURLY "{}"
 
 /* end of input */
-%token EOF
+%token <Comments.t Queue.t> EOF
 
 %{
   open Types

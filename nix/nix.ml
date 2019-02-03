@@ -5,9 +5,9 @@ module Nix = struct
 
   let parse (chan:in_channel) (file_name:string) =
     let lexbuf = Lexer.set_filename file_name (Lexing.from_channel chan) in
-    let q, s = Queue.create (), ref [] in
+    let s = Lexer.create () in
     try
-      Parser.main (Lexer.next_token q s) lexbuf
+      Parser.main (Lexer.next_token s) lexbuf
     with
     | Lexer.Error msg ->
       raise (ParseError (Printf.sprintf "lexing error: %s\n" msg))
