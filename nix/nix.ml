@@ -1,6 +1,7 @@
 module Nix = struct
   module Ast = Types
   module Comments = Comments
+  module Location = Location
 
   exception ParseError of string
 

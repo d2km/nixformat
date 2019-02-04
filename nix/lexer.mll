@@ -192,9 +192,9 @@ rule get_tokens s = parse
 | '#' ([^ '\n']* as c)
     {
       Queue.add (
-        Comments.SingleLine {
-          value = c;
-          location = (
+        {
+          Comments.value = Comments.SingleLine c;
+          Comments.location = (
             Lexing.lexeme_start_p lexbuf,
             Lexing.lexeme_end_p lexbuf
           )
@@ -261,9 +261,9 @@ and comment buf = parse
     {Lexing.new_line lexbuf; Buffer.add_char buf '\n'; comment buf lexbuf}
   | "*/"
     {
-      Comments.Inline {
-        value = (Buffer.contents buf);
-        location = (
+      {
+        Comments.value = Comments.Inline (Buffer.contents buf);
+        Comments.location = (
           Lexing.lexeme_start_p lexbuf,
           Lexing.lexeme_end_p lexbuf
         )
