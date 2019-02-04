@@ -209,7 +209,18 @@ rule get_tokens s = parse
 | "${"
     { Queue.add AQUOTE_OPEN s.q; s.bs <- AQUOTE :: s.bs }
 | '{'
-    { Queue.add LBRACE s.q; s.bs <- SET :: s.bs }
+    {
+      Queue.add LBRACE s.q; s.bs <- SET :: s.bs;
+      get_tokens s lexbuf;
+      if Queue.length s.q == 2 then
+        match Queue.take s.q, Queue.take s.q with
+        | LBRACE, RBRACE ->
+          Queue.add EMPTY_CURLY s.q;
+        | t1, t2 ->
+          Queue.add t1 s.q; Queue.add t2 s.q;
+      else
+        ()
+    }
 | '}'
     {
       match s.bs with
@@ -222,15 +233,6 @@ rule get_tokens s = parse
         let err = Printf.sprintf "Unbalanced '}' at %s\n" pos in
         raise (Error err)
     }
-(* a special token to avoid parser conflicts on param sets and attr sets *)
-| '{' [' ' '\r' '\t' '\n']* as ws '}'
-  {
-    (* change the line number *)
-    String.iter (fun c ->
-        if c == '\n' then Lexing.new_line lexbuf else ()
-      ) ws;
-    Queue.add EMPTY_CURLY s.q
-  }
 (* a double-quoted string *)
 | '"'
     { string `Start (Buffer.create 64) s lexbuf }
