@@ -80,28 +80,29 @@ and id = string
 let prec_of_bop = function
   | Concat              -> 5
   | Mult | Div          -> 6
-  | Plus | Minus        -> 7
-  | Merge               -> 9
-  | Gt | Lt | Lte | Gte -> 10
-  | Eq | Neq            -> 11
-  | And                 -> 12
-  | Or                  -> 13
-  | Impl                -> 14
+  | Plus                -> 7
+  | Minus               -> 8
+  | Merge               -> 10
+  | Gt | Lt | Lte | Gte -> 11
+  | Eq | Neq            -> 12
+  | And                 -> 13
+  | Or                  -> 14
+  | Impl                -> 15
 
 (* precedence levels of unary operatots *)
 let prec_of_uop = function
   | Negate -> 3
-  | Not    -> 8
+  | Not    -> 10
 
 (* precedence level of expressions
   (assuming that the constituents have higher levels)
  *)
 let prec_of_expr = function
-  | Val (Lambda _) -> 15
+  | Val (Lambda _, _) -> 15
   | Val _ | Id _ | Aquote _ -> 0
-  | BinaryOp(op, _, _) -> prec_of_bop op
-  | UnaryOp(op, _) -> prec_of_uop op
-  | Cond _ | With _ | Assert _ | Let _ -> 15
+  | BinaryOp(op, _, _, _) -> prec_of_bop op
+  | UnaryOp(op, _, _) -> prec_of_uop op
+  | Cond _ | With _ | Assert _ | Let _ -> 16
   | Test _ -> 4
   | Select _ -> 1
   | Apply _ -> 2
