@@ -73,13 +73,13 @@
   open Types
 %}
 
-%start <Types.expr> main
+%start <Types.expr * Comments.t Queue.t> main
 
 %%
 
 main:
-| e = expr0 EOF
-    { e }
+| e = expr0; cs = EOF
+    { (e, cs) }
 
 expr0:
 | "if"; e1 = expr0; "then"; e2 = expr0; "else"; e3 = expr0

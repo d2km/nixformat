@@ -1,30 +1,32 @@
 module SimplePrinter : Pprinter.PPRINTER = struct
   open Nix.Ast
 
-  let rec print chan = function
+  let print chan (expr, _) = print' chan expr
+
+  let rec print' chan = function
     | BinaryOp(op, lhs, rhs) ->
-      print chan lhs; print_bop chan op; print chan rhs
+      print' chan lhs; print_bop chan op; print' chan rhs
     | UnaryOp(op, e) ->
-      print_uop chan op; print chan e
+      print_uop chan op; print' chan e
     | Cond(e1, e2, e3) ->
       output_string chan "if ";
-      print chan e1;
+      print' chan e1;
       output_string chan " then ";
       print_paren chan e2;
       output_string chan " else ";
-      print chan e3
+      print' chan e3
     | With(e1, e2) ->
       output_string chan "with ";
-      print chan e1;
+      print' chan e1;
       output_string chan "; ";
-      print chan e2
+      print' chan e2
     | Assert(e1, e2) ->
       output_string chan "assert ";
-      print chan e1;
+      print' chan e1;
       output_string chan "; ";
-      print chan e2
+      print' chan e2
     | Test(e1, attpath) ->
-      print chan e1;
+      print' chan e1;
       output_string chan "? ";
       separated_list chan ", " attpath
     | Let(bindings, e) ->
@@ -34,7 +36,7 @@ module SimplePrinter : Pprinter.PPRINTER = struct
           output_char chan ' '
         ) bindings;
       output_string chan " in ";
-      print chan e
+      print' chan e
     | Val v ->
       print_val chan v
     | Id id ->
@@ -55,7 +57,7 @@ module SimplePrinter : Pprinter.PPRINTER = struct
       )
 
     | Apply(f, arg) ->
-      print chan f;
+      print' chan f;
       output_char chan ' ';
       delimited chan "(" arg ")"
 
@@ -66,8 +68,8 @@ module SimplePrinter : Pprinter.PPRINTER = struct
     delimited chan "(" e ")"
 
   and print_path_component chan = function
-    | (Val _) as e -> print chan e
-    | (Id _) as e -> print chan e
+    | (Val _) as e -> print' chan e
+    | (Id _) as e -> print' chan e
     | e -> print_paren chan e
 
   and print_bop chan op =
@@ -132,7 +134,7 @@ module SimplePrinter : Pprinter.PPRINTER = struct
     output_string chan s;
     List.iter (fun (e, s) ->
         output_string chan "${";
-        print chan e;
+        print' chan e;
         output_char chan '}';
         output_string chan s
       ) mids;
@@ -143,7 +145,7 @@ module SimplePrinter : Pprinter.PPRINTER = struct
     output_string chan s;
     List.iter (fun (e, s) ->
         output_string chan "${";
-        print chan e;
+        print' chan e;
         output_char chan '}';
         output_string chan s
       ) mids;
@@ -164,7 +166,7 @@ module SimplePrinter : Pprinter.PPRINTER = struct
       output_string chan id
     );
     output_string chan ": ";
-    print chan e
+    print' chan e
 
   and print_param_set chan = function
     | (head :: tail), Some () ->
@@ -193,14 +195,14 @@ module SimplePrinter : Pprinter.PPRINTER = struct
     match maybe_expr with
     | Some e ->
       output_string chan "? ";
-      print chan e
+      print' chan e
     | None -> ()
 
   and print_binding chan = function
     | AttrPath(es, e) ->
       separated_list chan "." es;
       output_string chan " = ";
-      print chan e;
+      print' chan e;
       output_char chan ';'
     | Inherit(maybe_e, ids) ->
       output_string chan "inherit ";
@@ -218,16 +220,16 @@ module SimplePrinter : Pprinter.PPRINTER = struct
 
   and delimited chan l e r =
     output_string chan l;
-    print chan e;
+    print' chan e;
     output_string chan r
 
   and separated_list chan sep xs =
     match xs with
     | head :: tail ->
-      print chan head;
+      print' chan head;
       List.iter (fun e ->
           output_string chan sep;
-          print chan e
+          print' chan e
         ) tail
     | [] ->
       ()

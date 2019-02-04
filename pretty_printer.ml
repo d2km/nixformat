@@ -204,7 +204,7 @@ end = struct
     | Null ->
       string "null"
 
-  let print chan expr =
+  let print chan (expr, _) =
     ToChannel.pretty 0.7 !out_width chan (doc_of_expr expr)
 
 end
