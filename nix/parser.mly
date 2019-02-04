@@ -83,15 +83,15 @@ main:
 
 expr0:
 | "if"; e1 = expr0; "then"; e2 = expr0; "else"; e3 = expr0
-    { Cond(e1, e2, e3) }
+    { Cond(e1, e2, e3, $sloc) }
 | "with"; e1 = expr0; ";"; e2 = expr0
-    { With(e1, e2) }
+    { With(e1, e2, $sloc) }
 | "assert"; e1 = expr0; ";"; e2 = expr0
-    { Assert(e1, e2) }
+    { Assert(e1, e2, $sloc) }
 | "let"; xs = nonempty_list(binding); "in"; e = expr0
-    { Let(xs, e) }
+    { Let(xs, e, $sloc) }
 | l = lambda
-    { Val l }
+    { Val (l, $sloc) }
 | e = expr1
     { e }
 
@@ -103,7 +103,7 @@ expr0:
 
 %inline binary_expr(Lhs, Op, Rhs):
 lhs = Lhs; op = Op; rhs = Rhs
-    { BinaryOp(op, lhs, rhs) }
+    { BinaryOp(op, lhs, rhs, $sloc) }
 
 expr1:
 | e = binary_expr(expr2, "->" {Impl}, expr1)
@@ -147,7 +147,7 @@ expr6:
 
 expr7:
 | e = preceded("!", expr7)
-    { UnaryOp(Not, e) }
+    { UnaryOp(Not, e, $sloc) }
 | e = expr8
     { e }
 
@@ -176,41 +176,41 @@ expr10:
 
 expr11:
 | e = expr12 "?" p = attr_path
-    { Test(e, p) }
+    { Test(e, p, $sloc) }
 | e = expr12
     { e }
 
 expr12:
 | e = preceded("-", expr13)
-    { UnaryOp(Negate, e) }
+    { UnaryOp(Negate, e, $sloc) }
 | e = expr13
     { e }
 
 expr13:
 | f = expr13; arg = expr14
-    { Apply(f, arg) }
+    { Apply(f, arg, $sloc) }
 | e = expr14
     { e }
 
 %inline selectable:
 | s = set
-    { Val s }
+    { Val (s, $sloc) }
 | id = ID
-    { Id id }
+    { Id (id, $sloc) }
 | e = delimited("(", expr0, ")")
     { e }
 
 expr14:
 | e = selectable; "."; p = attr_path; o = option(preceded("or", expr14))
-    { Select(e, p, o) }
+    { Select(e, p, o, $sloc) }
 | e = atomic_expr
     { e }
 
 atomic_expr:
 | id = ID
-    { Id id }
+    { Id (id, $sloc) }
 | v = value
-    { Val v }
+    { Val (v, $sloc) }
 | e = delimited("(", expr0, ")")
     { e }
 
@@ -220,11 +220,11 @@ attr_path:
 
 attr_path_component:
 | id = ID
-    {Id id}
+    {Id (id, $sloc)}
 | e = delimited("${", expr0, "}$")
-    { Aquote e }
+    { Aquote (e, $sloc) }
 | s = str
-    { Val s }
+    { Val (s, $sloc) }
 
 value:
 | s = str

@@ -13,80 +13,80 @@ end = struct
   let indent = ref 2
   let set_indent i = indent := i
 
-  let rec doc_of_expr = function
-    | BinaryOp(op, lhs, rhs) ->
+  let rec doc_of_expr cs = function
+    | BinaryOp(op, lhs, rhs, _loc) ->
       let lvl = prec_of_bop op in
-      let lhs_doc = maybe_parens lvl lhs in
-      let rhs_doc = maybe_parens lvl rhs in
+      let lhs_doc = maybe_parens cs lvl lhs in
+      let rhs_doc = maybe_parens cs lvl rhs in
       (* TODO: don't use parens if it's a chain of ops, e.g. 1+1+1 *)
       infix !indent 1 (doc_of_bop op) lhs_doc rhs_doc
 
-    | UnaryOp(op, e) ->
-      precede (doc_of_uop op) (maybe_parens (prec_of_uop op) e)
+    | UnaryOp(op, e, _loc) ->
+      precede (doc_of_uop op) (maybe_parens cs (prec_of_uop op) e)
 
-    | Cond(e1, e2, e3) ->
+    | Cond(e1, e2, e3, _loc) ->
       surround !indent 1
         (soft_surround !indent 1
-           (string "if") (doc_of_expr e1) (string "then"))
-        (doc_of_expr e2)
+           (string "if") (doc_of_expr cs e1) (string "then"))
+        (doc_of_expr cs e2)
         (string "else" ^^
-         (nest !indent (break 1 ^^ doc_of_expr e3)))
+         (nest !indent (break 1 ^^ doc_of_expr cs e3)))
 
-    | With(e1, e2) ->
+    | With(e1, e2, _loc) ->
       flow (break 1) [
         string "with";
-        doc_of_expr e1 ^^ semi;
-        doc_of_expr e2
+        doc_of_expr cs e1 ^^ semi;
+        doc_of_expr cs e2
       ]
 
-    | Assert(e1, e2) ->
+    | Assert(e1, e2, _loc) ->
       flow (break 1) [
         string "assert";
-        doc_of_expr e1 ^^ semi;
-        doc_of_expr e2
+        doc_of_expr cs e1 ^^ semi;
+        doc_of_expr cs e2
       ]
 
-    | Test(e, path) ->
-        maybe_parens 4 e ^^ string "?" ^^
-        group (break 1 ^^ separate_map dot doc_of_expr path)
+    | Test(e, path, _loc) ->
+        maybe_parens cs 4 e ^^ string "?" ^^
+        group (break 1 ^^ separate_map dot (doc_of_expr cs) path)
 
-    | Let(bs, e) ->
+    | Let(bs, e, _loc) ->
       surround !indent 1
         (string "let")
-        (separate_map (break 1) doc_of_binding bs)
-        (prefix !indent 1 (string "in") (doc_of_expr e))
+        (separate_map (break 1) (doc_of_binding cs) bs)
+        (prefix !indent 1 (string "in") (doc_of_expr cs e))
 
-    | Val v ->
-      doc_of_val v
+    | Val (v, _loc) ->
+      doc_of_val cs v
 
-    | Id id ->
+    | Id (id, _loc) ->
       string id
 
-    | Select(e, path, oe) ->
-      maybe_parens 1 e ^^ dot ^^
-      doc_of_attpath path ^^
+    | Select(e, path, oe, _loc) ->
+      maybe_parens cs 1 e ^^ dot ^^
+      doc_of_attpath cs path ^^
       optional (fun e ->
           space ^^ string "or" ^^
-          nest !indent ( break 1 ^^ maybe_parens 1 e)
+          nest !indent ( break 1 ^^ maybe_parens cs 1 e)
         ) oe
 
-    | Apply(e1, e2) ->
-      prefix !indent 1 (maybe_parens 2 e1) (maybe_parens 2 e2)
+    | Apply(e1, e2, _loc) ->
+      prefix !indent 1 (maybe_parens cs 2 e1) (maybe_parens cs 2 e2)
 
-    | Aquote e ->
-      surround !indent 0 (string "${") (doc_of_expr e) (string "}")
+    | Aquote (e, _loc) ->
+      surround !indent 0 (string "${") (doc_of_expr cs e) (string "}")
 
-  and maybe_parens lvl e =
-    if prec_of_expr e >= lvl then
-      surround !indent 0 lparen (doc_of_expr e) rparen
+  and maybe_parens cs lvl e =
+    if prec_of_expr e > lvl then
+      surround !indent 0 lparen (doc_of_expr cs e) rparen
     else
-      doc_of_expr e
+      doc_of_expr cs e
 
-  and doc_of_attpath path =
-    separate_map dot doc_of_expr path
+  and doc_of_attpath cs path =
+    separate_map dot (doc_of_expr cs) path
 
-  and doc_of_paramset(params, ellipsis) =
-    let ps = List.map doc_of_param params @ match ellipsis with
+  and doc_of_paramset cs (params, ellipsis) =
+    let ps = List.map (doc_of_param cs) params @ match ellipsis with
       | Some _ -> [string "..."]
       | None -> []
     in
@@ -95,22 +95,22 @@ end = struct
       (separate (comma ^^ break 1) ps)
       rbrace
 
-  and doc_of_param(id, oe) =
+  and doc_of_param cs (id, oe) =
     string id ^^ optional (fun e ->
-        qmark ^^ space ^^ doc_of_expr e
+        qmark ^^ space ^^ doc_of_expr cs e
       ) oe
 
-  and doc_of_binding = function
+  and doc_of_binding cs = function
     | AttrPath(path, e) ->
-      (doc_of_attpath path) ^^
+      (doc_of_attpath cs path) ^^
       space ^^ equals ^^ space ^^
-      doc_of_expr e ^^ semi
+      doc_of_expr cs e ^^ semi
 
     | Inherit(oe, ids) ->
       let id_docs = List.map string ids in
       let xs = flow (break 1) (
           match oe with
-          | Some e -> (parens (doc_of_expr e)) :: id_docs
+          | Some e -> (parens (doc_of_expr cs e)) :: id_docs
           | None -> id_docs
         )
       in
@@ -137,14 +137,14 @@ end = struct
     | Negate -> minus
     | Not -> bang
 
-  and doc_of_val = function
+  and doc_of_val cs = function
     | Str(start, xs) ->
       dquotes (
         string start ^^
         concat (List.map (fun (e, s) ->
             surround !indent 0
               (string "${")
-              (doc_of_expr e)
+              (doc_of_expr cs e)
               (string "}" ^^ string s)
           ) xs ))
 
@@ -162,7 +162,7 @@ end = struct
       enclose qq qq (
         str start ^^
         concat (List.map (fun (e, s) ->
-            enclose (string "${") rbrace (doc_of_expr e) ^^ str s
+            enclose (string "${") rbrace (doc_of_expr cs e) ^^ str s
           ) xs ))
 
     | Int x | Float x | Path x | SPath x | HPath x | Uri x | Bool x ->
@@ -173,39 +173,39 @@ end = struct
         | Alias id ->
           string id
         | ParamSet ps ->
-          doc_of_paramset ps
+          doc_of_paramset cs ps
         | AliasedSet(id, ps) ->
-          doc_of_paramset ps ^^
+          doc_of_paramset cs ps ^^
           group (break 1 ^^ at ^^ break 1 ^^ string id)
       in
       flow (break 1) [
         pat ^^ colon;
-        doc_of_expr body
+        doc_of_expr cs body
       ]
 
     | List es ->
       surround !indent 1
         lbracket
-        (separate_map (break 1) doc_of_expr es)
+        (separate_map (break 1) (doc_of_expr cs) es)
         rbracket
 
     | AttSet bs ->
       surround !indent 1
         lbrace
-        (group (separate_map (break 1) doc_of_binding bs))
+        (group (separate_map (break 1) (doc_of_binding cs) bs))
         rbrace
 
     | RecAttSet bs ->
       string "rec" ^^ space ^^ surround !indent 1
         lbrace
-        (group (separate_map (break 1) doc_of_binding bs))
+        (group (separate_map (break 1) (doc_of_binding cs) bs))
         rbrace
 
     | Null ->
       string "null"
 
-  let print chan (expr, _) =
-    ToChannel.pretty 0.7 !out_width chan (doc_of_expr expr)
+  let print chan (expr, cs) =
+    ToChannel.pretty 0.7 !out_width chan (doc_of_expr cs expr)
 
 end
 

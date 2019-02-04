@@ -23,18 +23,18 @@ type unary_op =
 
 (* The top-level expression type *)
 type expr =
-  | BinaryOp of binary_op * expr * expr
-  | UnaryOp of unary_op * expr
-  | Cond of expr * expr * expr
-  | With of expr * expr
-  | Assert of expr * expr
-  | Test of expr * expr list
-  | Let of binding list * expr
-  | Val of value
-  | Id of id
-  | Select of expr * expr list * expr option
-  | Apply of expr * expr
-  | Aquote of expr
+  | BinaryOp of binary_op * expr * expr * Location.t
+  | UnaryOp of unary_op * expr * Location.t
+  | Cond of expr * expr * expr * Location.t
+  | With of expr * expr * Location.t
+  | Assert of expr * expr * Location.t
+  | Test of expr * expr list * Location.t
+  | Let of binding list * expr * Location.t
+  | Val of value * Location.t
+  | Id of id * Location.t
+  | Select of expr * expr list * expr option * Location.t
+  | Apply of expr * expr * Location.t
+  | Aquote of expr * Location.t
 
 (* Possible values *)
 and value =

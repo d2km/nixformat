@@ -1,8 +1,7 @@
 type comment =
   {
     value: string;
-    start_p: Lexing.position;
-    end_p: Lexing.position
+    location: Location.t
   }
 
 type t =

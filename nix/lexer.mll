@@ -194,8 +194,10 @@ rule get_tokens s = parse
       Queue.add (
         Comments.SingleLine {
           value = c;
-          start_p = Lexing.lexeme_start_p lexbuf;
-          end_p = Lexing.lexeme_end_p lexbuf
+          location = (
+            Lexing.lexeme_start_p lexbuf,
+            Lexing.lexeme_end_p lexbuf
+          )
         }
       ) s.cs;
       get_tokens s lexbuf
@@ -215,9 +217,10 @@ rule get_tokens s = parse
       if Queue.length s.q == 2 then
         match Queue.take s.q, Queue.take s.q with
         | LBRACE, RBRACE ->
+          (* TODO: update location *)
           Queue.add EMPTY_CURLY s.q;
         | t1, t2 ->
-          Queue.add t1 s.q; Queue.add t2 s.q;
+          Queue.add t1 s.q; Queue.add t2 s.q
       else
         ()
     }
@@ -260,8 +263,10 @@ and comment buf = parse
     {
       Comments.Inline {
         value = (Buffer.contents buf);
-        start_p = Lexing.lexeme_start_p lexbuf;
-        end_p = Lexing.lexeme_end_p lexbuf;
+        location = (
+          Lexing.lexeme_start_p lexbuf,
+          Lexing.lexeme_end_p lexbuf
+        )
       }
     }
   | _ as c
