@@ -275,9 +275,9 @@ set:
     { AttSet [] }
 | "rec"; "{}"
     { RecAttSet [] }
-| xs = delimited("{", list(binding), "}")
+| xs = delimited("{", nonempty_list(binding), "}")
     { AttSet xs }
-| xs = preceded("rec", delimited("{", list(binding), "}"))
+| xs = preceded("rec", delimited("{", nonempty_list(binding), "}"))
     { RecAttSet xs }
 
 binding:
