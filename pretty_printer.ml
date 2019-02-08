@@ -214,17 +214,25 @@ end = struct
       string x
 
     | Lambda(pattern, body) ->
-      let pat = match pattern with
+      let doc_of_pattern = function
         | Alias id ->
-          string id
+          string id ^^ colon
         | ParamSet ps ->
-          doc_of_paramset cs ps
+          doc_of_paramset cs ps ^^ colon
         | AliasedSet(id, ps) ->
           doc_of_paramset cs ps ^^
-          group (break 1 ^^ at ^^ break 1 ^^ string id)
+          group (break 1 ^^ at ^^ break 1 ^^ string id) ^^ colon
       in
+      let rec extract_patterns (patterns, body) =
+        match body with
+        | Val (Lambda(pattern, body'), _) ->
+          extract_patterns (pattern :: patterns, body')
+        | _ ->
+          (List.rev patterns, body)
+      in
+      let (patterns, body) = extract_patterns ([pattern], body) in
       flow (break 1) [
-        pat ^^ colon;
+        group (separate_map (break 1) doc_of_pattern patterns);
         doc_of_expr cs body
       ]
 
