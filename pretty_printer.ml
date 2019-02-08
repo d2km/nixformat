@@ -13,12 +13,16 @@ end = struct
   let indent = ref 2
   let set_indent i = indent := i
 
-  let place_comments cs loc doc =
+  let place_comments cs loc =
     let open Nix.Location in
     let open Nix.Comments in
     let rec take_while pred q =
-      match try Some (Queue.take q) with Queue.Empty -> None with
-      | Some x -> if pred x then x :: take_while pred q else []
+      match try Some (Queue.peek q) with Queue.Empty -> None with
+      | Some x ->
+        if pred x then
+          (ignore (Queue.pop q); x :: take_while pred q)
+        else
+          []
       | None -> []
     in
     let before = fun comment ->
@@ -27,80 +31,95 @@ end = struct
       | _ -> false
     in
     let xs = take_while before cs in
-    concat_map (fun c -> string (to_string c) ^^ hardline) xs ^^ doc
+    concat_map (fun c -> string (to_string c) ^^ hardline) xs
 
 
   let rec doc_of_expr cs = function
     | BinaryOp(op, lhs, rhs, loc) ->
       let lvl = prec_of_bop op in
-      let lhs_doc = maybe_parens cs lvl lhs in
-      let rhs_doc = maybe_parens cs lvl rhs in
-      (* TODO: don't use parens if it's a chain of ops, e.g. 1+1+1 *)
-      infix !indent 1 (doc_of_bop op) lhs_doc rhs_doc
-      |> place_comments cs loc
+      let comments = place_comments cs loc in
+      comments ^^
+      (
+        let lhs_doc = maybe_parens cs lvl lhs in
+        let op_doc = doc_of_bop op  in
+        let rhs_doc = maybe_parens cs lvl rhs in
+        infix !indent 1 op_doc lhs_doc rhs_doc
+      )
 
     | UnaryOp(op, e, loc) ->
+      let comments = (place_comments cs loc) in
+      comments ^^
       precede (doc_of_uop op) (maybe_parens cs (prec_of_uop op) e)
-      |> place_comments cs loc
 
     | Cond(e1, e2, e3, loc) ->
+      let comments = (place_comments cs loc) in
+      comments ^^
       surround !indent 1
         (soft_surround !indent 1
            (string "if") (doc_of_expr cs e1) (string "then"))
         (doc_of_expr cs e2)
         (string "else" ^^
          (nest !indent (break 1 ^^ doc_of_expr cs e3)))
-      |> place_comments cs loc
 
     | With(e1, e2, loc) ->
+      let comments = place_comments cs loc in
+      comments ^^
       flow (break 1) [
         string "with";
         doc_of_expr cs e1 ^^ semi;
         doc_of_expr cs e2
       ]
-      |> place_comments cs loc
 
     | Assert(e1, e2, loc) ->
+      let comments = place_comments cs loc in
+      comments ^^
       flow (break 1) [
         string "assert";
         doc_of_expr cs e1 ^^ semi;
         doc_of_expr cs e2
       ]
-      |> place_comments cs loc
 
     | Test(e, path, loc) ->
-        maybe_parens cs 4 e ^^ string "?" ^^
-        group (break 1 ^^ separate_map dot (doc_of_expr cs) path)
-        |> place_comments cs loc
+      let comments = place_comments cs loc in
+      comments ^^
+      maybe_parens cs 4 e ^^ string "?" ^^
+      group (break 1 ^^ separate_map dot (doc_of_expr cs) path)
+
     | Let(bs, e, loc) ->
+      let comments = place_comments cs loc in
+      comments ^^
       surround !indent 1
         (string "let")
         (separate_map (break 1) (doc_of_binding cs) bs)
         (prefix !indent 1 (string "in") (doc_of_expr cs e))
-      |> place_comments cs loc
 
     | Val (v, loc) ->
-      doc_of_val cs v |> place_comments cs loc
+      let comments = place_comments cs loc in
+      comments ^^ doc_of_val cs v
 
     | Id (id, loc) ->
-      string id |> place_comments cs loc
+      let comments = place_comments cs loc in
+      comments ^^ string id
 
     | Select(e, path, oe, loc) ->
+      let comments = place_comments cs loc in
+      comments ^^
       maybe_parens cs 1 e ^^ dot ^^
       doc_of_attpath cs path ^^
       optional (fun e ->
           space ^^ string "or" ^^
           nest !indent ( break 1 ^^ maybe_parens cs 1 e)
         ) oe
-      |> place_comments cs loc
 
     | Apply(e1, e2, loc) ->
+      let comments = place_comments cs loc in
+      comments ^^
       prefix !indent 1 (maybe_parens cs 2 e1) (maybe_parens cs 2 e2)
-      |> place_comments cs loc
 
     | Aquote (e, loc) ->
+      let comments = place_comments cs loc in
+      comments ^^
       surround !indent 0 (string "${") (doc_of_expr cs e) (string "}")
-      |> place_comments cs loc
 
   and maybe_parens cs lvl e =
     if prec_of_expr e > lvl then
