@@ -14,15 +14,26 @@ type braces =
 
 type state =
   {
-    q: token Queue.t;
+    q: (token * (Lexing.position * Lexing.position)) Queue.t;
     cs: Comments.t Queue.t;
+    mutable real_start_p: Lexing.position;
+    mutable real_curr_p: Lexing.position;
     mutable bs: braces list;
   }
 
-let create () =
+let initial_pos fname =
+  let open Lexing in
+  {pos_fname = fname; pos_lnum = 0; pos_bol = 0; pos_cnum = 0}
+
+let sloc lexbuf =
+  Lexing.(lexeme_start_p lexbuf, lexeme_end_p lexbuf)
+
+let create filename =
   {
     q = Queue.create();
     cs = Queue.create();
+    real_start_p = initial_pos filename;
+    real_curr_p = initial_pos filename;
     bs = [];
   }
 
@@ -110,17 +121,17 @@ let unescape = function
     failwith (Printf.sprintf "unescape unexpected arg %s" x)
 
 let collect_tokens lexer s lexbuf =
-  let s' = create () in
+  let s' = create lexbuf.Lexing.lex_curr_p.pos_fname in
   let rec go () =
     match (try Some (Queue.take s'.q) with Queue.Empty -> None) with
     | Some token ->
       (
         match token, s'.bs with
-        | AQUOTE_CLOSE, [] ->
-          Queue.add AQUOTE_CLOSE s.q
-        | (EOF cs), _ ->
+        | (AQUOTE_CLOSE, _) as tok, [] ->
+          Queue.add tok s.q
+        | (EOF cs, loc), _ ->
           Queue.transfer cs s.cs;
-          Queue.add (EOF (Queue.copy s.cs)) s.q
+          Queue.add (EOF (Queue.copy s.cs), loc) s.q
         | _, _ ->
           Queue.add token s.q;
           go ()
@@ -129,7 +140,7 @@ let collect_tokens lexer s lexbuf =
       lexer s' lexbuf;
       go ()
   in
-  Queue.add AQUOTE_OPEN s.q;
+  Queue.add (AQUOTE_OPEN, sloc lexbuf) s.q;
   s'.bs <- [AQUOTE];
   lexer s' lexbuf;
   go ()
@@ -139,14 +150,7 @@ let print_position lexbuf =
   let pos = Lexing.lexeme_start_p lexbuf in
   Printf.sprintf "%s:%d:%d" pos.pos_fname
     pos.pos_lnum (pos.pos_cnum - pos.pos_bol + 1)
-
-
-let set_filename fname (lexbuf: Lexing.lexbuf)  =
-  let pos = lexbuf.lex_curr_p in
-  lexbuf.lex_curr_p <- { pos with pos_fname = fname }; lexbuf
-
 }
-
 let digit = ['0'-'9']
 let float = digit* '.' digit+ ('e' '-'? digit+)?
 let alpha = ['a'-'z' 'A'-'Z']
@@ -168,36 +172,38 @@ rule get_tokens s = parse
 | '\n'
     { Lexing.new_line lexbuf; get_tokens s lexbuf }
 | char_tokens as c
-    { Queue.add (Array.get char_table ((int_of_char c) - 1)) s.q }
+    { Queue.add (Array.get char_table ((int_of_char c) - 1), sloc lexbuf) s.q }
 | ("//" | "++" | "<=" | ">=" | "==" | "!=" | "&&" | "||" | "->" | "...") as op
-    { Queue.add (Hashtbl.find str_table op) s.q}
+    { Queue.add (Hashtbl.find str_table op, sloc lexbuf) s.q}
 | digit+ as i
-    { Queue.add (INT i) s.q }
+    { Queue.add (INT i, sloc lexbuf) s.q }
 | float
-    { Queue.add (FLOAT (Lexing.lexeme lexbuf)) s.q }
+    { Queue.add (FLOAT (Lexing.lexeme lexbuf), sloc lexbuf) s.q }
 | path
-    { Queue.add (PATH (Lexing.lexeme lexbuf)) s.q }
+    { Queue.add (PATH (Lexing.lexeme lexbuf), sloc lexbuf) s.q }
 | '<' (spath as p) '>'
-    { Queue.add (SPATH  p) s.q }
+    { Queue.add (SPATH  p, sloc lexbuf) s.q }
 | '~' path as p
-    { Queue.add (HPATH  p) s.q }
+    { Queue.add (HPATH  p, sloc lexbuf) s.q }
 | uri
-    { Queue.add(URI (Lexing.lexeme lexbuf)) s.q }
+    { Queue.add(URI (Lexing.lexeme lexbuf), sloc lexbuf) s.q }
 | ("true" | "false") as b
-    { Queue.add (BOOL b) s.q }
+    { Queue.add (BOOL b, sloc lexbuf) s.q }
 (* keywords or identifies *)
 | ((alpha | '_')+ (alpha_digit | ['_' '\'' '-'])*) as id
-    { Queue.add (try Hashtbl.find keyword_table id with Not_found -> ID id) s.q }
+    { Queue.add (
+      (try
+        Hashtbl.find keyword_table id
+      with Not_found -> ID id),
+      sloc lexbuf
+    ) s.q }
 (* comments *)
 | '#' ([^ '\n']* as c)
     {
       Queue.add (
         {
           Comments.value = Comments.SingleLine c;
-          Comments.location = (
-            Lexing.lexeme_start_p lexbuf,
-            Lexing.lexeme_end_p lexbuf
-          )
+          Comments.location = sloc lexbuf
         }
       ) s.cs;
       get_tokens s lexbuf
@@ -209,16 +215,15 @@ rule get_tokens s = parse
     }
 (* the following three tokens change the braces stack *)
 | "${"
-    { Queue.add AQUOTE_OPEN s.q; s.bs <- AQUOTE :: s.bs }
+    { Queue.add (AQUOTE_OPEN, sloc lexbuf) s.q; s.bs <- AQUOTE :: s.bs }
 | '{'
     {
-      Queue.add LBRACE s.q; s.bs <- SET :: s.bs;
+      Queue.add (LBRACE, sloc lexbuf) s.q; s.bs <- SET :: s.bs;
       get_tokens s lexbuf;
       if Queue.length s.q == 2 then
         match Queue.take s.q, Queue.take s.q with
-        | LBRACE, RBRACE ->
-          (* TODO: update location *)
-          Queue.add EMPTY_CURLY s.q;
+        | (LBRACE, (start_p, _)), (RBRACE, (_, end_p)) ->
+          Queue.add (EMPTY_CURLY, (start_p, end_p)) s.q;
         | t1, t2 ->
           Queue.add t1 s.q; Queue.add t2 s.q
       else
@@ -228,9 +233,9 @@ rule get_tokens s = parse
     {
       match s.bs with
       | AQUOTE :: rest ->
-        Queue.add AQUOTE_CLOSE s.q; s.bs <- rest
+        Queue.add (AQUOTE_CLOSE, sloc lexbuf) s.q; s.bs <- rest
       | SET :: rest ->
-        Queue.add RBRACE s.q; s.bs <- rest
+        Queue.add (RBRACE, sloc lexbuf) s.q; s.bs <- rest
       | _ ->
         let pos = print_position lexbuf in
         let err = Printf.sprintf "Unbalanced '}' at %s\n" pos in
@@ -244,7 +249,7 @@ rule get_tokens s = parse
     { istring `Start None (Buffer.create 64) s lexbuf }
 (* End of input *)
 | eof
-    { Queue.add (EOF (Queue.copy s.cs)) s.q }
+    { Queue.add (EOF (Queue.copy s.cs), sloc lexbuf) s.q }
 (* any other character raises an exception *)
 | _
     {
@@ -263,10 +268,7 @@ and comment buf = parse
     {
       {
         Comments.value = Comments.Inline (Buffer.contents buf);
-        Comments.location = (
-          Lexing.lexeme_start_p lexbuf,
-          Lexing.lexeme_end_p lexbuf
-        )
+        Comments.location = sloc lexbuf
       }
     }
   | _ as c
@@ -274,7 +276,10 @@ and comment buf = parse
 
 and string state buf s = parse
   | '"'                         (* terminate when we hit '"' *)
-    { Queue.add (token_of_str state buf) s.q; Queue.add STR_END s.q }
+    {
+      Queue.add (token_of_str state buf, sloc lexbuf) s.q;
+      Queue.add (STR_END, sloc lexbuf) s.q
+    }
   | '\n'
     { Lexing.new_line lexbuf; Buffer.add_char buf '\n'; string state buf s lexbuf }
   | ("\\n" | "\\r" | "\\t" | "\\\\" | "\\${") as esc
@@ -283,7 +288,7 @@ and string state buf s = parse
       { Buffer.add_string buf esc; string state buf s lexbuf }
   | "${"               (* collect all the tokens till we hit the matching '}' *)
     {
-      Queue.add (token_of_str state buf) s.q;
+      Queue.add (token_of_str state buf, sloc lexbuf) s.q;
       collect_tokens get_tokens s lexbuf;
       string `Mid (Buffer.create 64) s lexbuf
     }
@@ -294,8 +299,8 @@ and istring state imin buf s = parse
   | "''"
       {
         let indent = match imin with | None -> 0 | Some i -> i in
-        Queue.add (token_of_istr state buf) s.q;
-        Queue.add (ISTR_END indent) s.q
+        Queue.add (token_of_istr state buf, sloc lexbuf) s.q;
+        Queue.add (ISTR_END indent, sloc lexbuf) s.q
       }
   | ('\n' (' '* as ws)) as empty_prefix
     {
@@ -314,7 +319,7 @@ and istring state imin buf s = parse
       { Buffer.add_string buf esc; istring state imin buf s lexbuf }
   | "${"
     {
-      Queue.add (token_of_istr state buf) s.q;
+      Queue.add (token_of_istr state buf, sloc lexbuf) s.q;
       collect_tokens get_tokens s lexbuf;
       istring `Mid imin (Buffer.create 64) s lexbuf
     }
@@ -324,9 +329,16 @@ and istring state imin buf s = parse
 
 let rec next_token (s: state) (lexbuf: Lexing.lexbuf) : token =
   match (try Some (Queue.take s.q) with | Queue.Empty -> None) with
-  | Some token ->
+  | Some (token, (start_p, curr_p)) ->
+    lexbuf.lex_start_p <- start_p;
+    lexbuf.lex_curr_p <- curr_p;
     token
   | None ->
+    lexbuf.lex_start_p <- s.real_start_p;
+    lexbuf.lex_curr_p <- s.real_curr_p;
     get_tokens s lexbuf;
+    s.real_start_p <- lexbuf.lex_start_p;
+    s.real_curr_p <- lexbuf.lex_curr_p;
+
     next_token s lexbuf
 }

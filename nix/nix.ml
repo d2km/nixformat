@@ -6,8 +6,8 @@ module Nix = struct
   exception ParseError of string
 
   let parse (chan:in_channel) (file_name:string) =
-    let lexbuf = Lexer.set_filename file_name (Lexing.from_channel chan) in
-    let s = Lexer.create () in
+    let lexbuf = Lexing.from_channel chan in
+    let s = Lexer.create file_name in
     try
       Parser.main (Lexer.next_token s) lexbuf
     with
