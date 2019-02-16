@@ -13,6 +13,12 @@ end = struct
   let indent = ref 2
   let set_indent i = indent := i
 
+  (* let print_2loc (s1, e1) (s2, e2) =
+   *   let open Lexing in
+   *   Printf.printf "location1: (%d, %d), location2 (%d, %d)\n"
+   *     s1.pos_cnum e1.pos_cnum
+   *     s2.pos_cnum e2.pos_cnum *)
+
   let place_comments cs loc =
     let open Nix.Location in
     let open Nix.Comments in
@@ -140,18 +146,24 @@ end = struct
       (separate (comma ^^ break 1) ps)
       rbrace
 
-  and doc_of_param cs (id, oe) =
+  and doc_of_param cs (id, oe, loc) =
+    let comments = place_comments cs loc in
+    comments ^^
     string id ^^ optional (fun e ->
         qmark ^^ space ^^ doc_of_expr cs e
       ) oe
 
   and doc_of_binding cs = function
-    | AttrPath(path, e) ->
+    | AttrPath(path, e, loc) ->
+      let comments = place_comments cs loc in
+      comments ^^
       (doc_of_attpath cs path) ^^
       space ^^ equals ^^ space ^^
       doc_of_expr cs e ^^ semi
 
-    | Inherit(oe, ids) ->
+    | Inherit(oe, ids, loc) ->
+      let comments = place_comments cs loc in
+      comments ^^
       let id_docs = List.map string ids in
       let xs = flow (break 1) (
           match oe with
@@ -231,10 +243,9 @@ end = struct
           (List.rev patterns, body)
       in
       let (patterns, body) = extract_patterns ([pattern], body) in
-      flow (break 1) [
-        group (separate_map (break 1) doc_of_pattern patterns);
-        doc_of_expr cs body
-      ]
+      let ps = group (separate_map (break 1) doc_of_pattern patterns) in
+      let d = doc_of_expr cs body in
+      flow (break 1) [ps; d]
 
     | List es ->
       surround !indent 1
@@ -258,7 +269,7 @@ end = struct
       string "null"
 
   let print chan (expr, cs) =
-    ToChannel.pretty 0.7 !out_width chan (doc_of_expr cs expr)
+    ToChannel.pretty 0.85 !out_width chan (doc_of_expr cs expr)
 
 end
 

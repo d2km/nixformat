@@ -190,7 +190,7 @@ module SimplePrinter : Pprinter.PPRINTER = struct
     | [], None ->
       ()
 
-  and print_param chan (id, maybe_expr) =
+  and print_param chan (id, maybe_expr, _) =
     output_string chan id;
     match maybe_expr with
     | Some e ->
@@ -199,12 +199,12 @@ module SimplePrinter : Pprinter.PPRINTER = struct
     | None -> ()
 
   and print_binding chan = function
-    | AttrPath(es, e) ->
+    | AttrPath(es, e, _) ->
       separated_list chan "." es;
       output_string chan " = ";
       print' chan e;
       output_char chan ';'
-    | Inherit(maybe_e, ids) ->
+    | Inherit(maybe_e, ids, _) ->
       output_string chan "inherit ";
       (
         match maybe_e with

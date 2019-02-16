@@ -282,9 +282,9 @@ set:
 
 binding:
 | kv = terminated(separated_pair(attr_path, "=", expr0), ";")
-    { let (k, v) = kv in AttrPath(k, v) }
+    { let (k, v) = kv in AttrPath(k, v, $sloc) }
 | xs = delimited("inherit", pair(option(delimited("(", expr0, ")")), list(ID)), ";")
-    { let (prefix, ids) = xs in Inherit(prefix, ids) }
+    { let (prefix, ids) = xs in Inherit(prefix, ids, $sloc) }
 
 lambda:
 | id = ID; "@"; p = param_set; ":"; e = expr0
@@ -313,4 +313,4 @@ params:
 
 param:
 p = pair(ID, option(preceded("?", expr0)))
-    { p }
+    { let (id, opt) = p in (id, opt, $sloc) }

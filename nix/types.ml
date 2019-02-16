@@ -65,13 +65,13 @@ and pattern =
 
 and param_set = param list * unit option
 
-and param = id * expr option
+and param = id * expr option * Location.t
 
 (* Bindings in attribute sets and let expressions *)
 and binding =
   (* The first expr should be attrpath, which is the same as in Select *)
-  | AttrPath of expr list * expr
-  | Inherit of expr option * id list
+  | AttrPath of expr list * expr * Location.t
+  | Inherit of expr option * id list * Location.t
 
 (* Identifiers *)
 and id = string
