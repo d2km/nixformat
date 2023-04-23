@@ -4,8 +4,7 @@ module PrettyPrinter : sig
   val set_indent: int -> unit
 end = struct
   open Nix.Ast
-  open PPrintEngine
-  open PPrintCombinators
+  open PPrint
 
   let out_width = ref 80
   let set_width i = out_width := i
